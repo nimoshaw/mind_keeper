@@ -11,6 +11,7 @@ This file is the clean status snapshot for the current build.
 - Intent-first task planning layer: done
 - Confidence-aware wave stopping: done
 - Per-wave budgeting: done
+- One-hop memory mesh expansion: done
 - Fast/deep recall split: done
 - Lightweight graph boosts: done
 - Long-term hygiene baseline: done

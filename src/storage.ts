@@ -129,6 +129,13 @@ interface MemoryEdgeRow {
   weight: number;
 }
 
+interface RelatedDocRow {
+  related_doc_id: string;
+  edge_type: string;
+  target_key: string;
+  score: number;
+}
+
 export class MindKeeperStorage {
   private readonly db: Database.Database;
 
@@ -568,6 +575,57 @@ export class MindKeeperStorage {
     }
 
     return output;
+  }
+
+  getRelatedDocumentMatches(input: {
+    seedDocIds: string[];
+    limit?: number;
+    allowedEdgeTypes?: MemoryEdgeType[];
+  }): Map<string, { score: number; hits: string[] }> {
+    if (input.seedDocIds.length === 0) {
+      return new Map();
+    }
+
+    const uniqueSeedDocIds = Array.from(new Set(input.seedDocIds));
+    const docPlaceholders = uniqueSeedDocIds.map(() => "?").join(", ");
+    const values: unknown[] = [...uniqueSeedDocIds, ...uniqueSeedDocIds];
+    const clauses = [
+      `e1.doc_id IN (${docPlaceholders})`,
+      `e2.doc_id NOT IN (${docPlaceholders})`
+    ];
+
+    if (input.allowedEdgeTypes?.length) {
+      clauses.push(`e1.edge_type IN (${input.allowedEdgeTypes.map(() => "?").join(", ")})`);
+      values.push(...input.allowedEdgeTypes);
+    }
+
+    const stmt = this.db.prepare(`
+      SELECT
+        e2.doc_id AS related_doc_id,
+        e1.edge_type AS edge_type,
+        e1.target_key AS target_key,
+        (e1.weight * e2.weight) AS score
+      FROM memory_edges e1
+      JOIN memory_edges e2
+        ON e1.edge_type = e2.edge_type
+       AND e1.target_key = e2.target_key
+      WHERE ${clauses.join(" AND ")}
+      ORDER BY score DESC
+    `);
+
+    const output = new Map<string, { score: number; hits: string[] }>();
+    for (const row of stmt.all(...values) as RelatedDocRow[]) {
+      const current = output.get(row.related_doc_id) ?? { score: 0, hits: [] };
+      current.score += row.score;
+      current.hits.push(`${row.edge_type}:${row.target_key}`);
+      output.set(row.related_doc_id, current);
+    }
+
+    return new Map(
+      Array.from(output.entries())
+        .sort((left, right) => right[1].score - left[1].score)
+        .slice(0, input.limit ?? 12)
+    );
   }
 
   listManifestsBySourceKind(sourceKind: MemorySourceKind): FileManifestRecord[] {

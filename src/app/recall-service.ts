@@ -228,6 +228,12 @@ export class RecallService {
         fallbackBudget: number;
         profileName: "documentation-biased" | "exploration-biased" | "balanced";
       };
+      usedMemoryMesh: boolean;
+      memoryMesh: {
+        seedDocIds: string[];
+        expandedDocIds: string[];
+        expansionHits: string[];
+      };
       knowledgeReserve: number;
       projectReserve: number;
       tokenBudget: number;
@@ -339,6 +345,31 @@ export class RecallService {
     let knowledgeResults = stableResults;
     let recentWaveUsed = false;
     const localWave = wavePlan[2];
+    const meshSeedDocIds = selectMeshSeedDocIds(stableResults);
+    const meshStorage = new MindKeeperStorage(input.projectRoot);
+    let meshCandidates: ChunkRecord[] = [];
+    try {
+      const meshMatches = meshStorage.getRelatedDocumentMatches({
+        seedDocIds: meshSeedDocIds,
+        limit: Math.max(4, localWave.budget),
+        allowedEdgeTypes: ["module", "symbol", "tag", "path"]
+      });
+      meshCandidates = meshMatches.size > 0
+        ? meshStorage
+          .fetchCandidates({
+            sourceKinds: ["manual", "decision", "project"]
+          })
+          .filter((candidate) => meshMatches.has(candidate.docId))
+          .map((candidate) => applyMeshExpansion(candidate, meshMatches.get(candidate.docId)))
+          .sort(compareChunks)
+          .slice(0, Math.max(2, Math.min(localWave.budget, 4)))
+        : [];
+    } finally {
+      meshStorage.close();
+    }
+    const meshKnowledge = meshCandidates.filter((item) => item.sourceKind !== "project");
+    const meshProject = meshCandidates.filter((item) => item.sourceKind === "project");
+    knowledgeResults = dedupeChunks([...knowledgeResults, ...meshKnowledge]).sort(compareChunks);
 
     const projectQueries = buildProjectQueries({
       projectRoot: input.projectRoot,
@@ -355,7 +386,7 @@ export class RecallService {
       minScore
     });
 
-    let projectResults: ChunkRecord[] = [];
+    let projectResults: ChunkRecord[] = meshProject;
     let merged = mergeTaskContextResults(knowledgeResults, projectResults, budget, stagePolicy.knowledgeReserve);
     let stopDecision =
       evaluateTaskWaveStop({
@@ -520,6 +551,12 @@ export class RecallService {
         intentAnchors: intentPlan.anchors,
         queryPlan: intentPlan.queryPlan,
         waveBudgetProfile,
+        usedMemoryMesh: meshCandidates.length > 0,
+        memoryMesh: {
+          seedDocIds: meshSeedDocIds,
+          expandedDocIds: Array.from(new Set(meshCandidates.map((item) => item.docId))),
+          expansionHits: Array.from(new Set(meshCandidates.flatMap((item) => item.relationHits ?? []))).slice(0, 12)
+        },
         symbol: symbol ?? null,
         language: language ?? null,
         branchName: branchName ?? null,
@@ -827,6 +864,41 @@ function summarizeStopMetrics(chunks: ChunkRecord[]): {
     topScore: chunks[0]?.score ?? 0,
     averageScore: totalScore / chunks.length,
     decisionCount
+  };
+}
+
+function selectMeshSeedDocIds(chunks: ChunkRecord[]): string[] {
+  const ranked = dedupeChunks(chunks);
+  const decisions = ranked.filter((chunk) => chunk.sourceKind === "decision").map((chunk) => chunk.docId);
+  if (decisions.length > 0) {
+    return decisions.slice(0, 2);
+  }
+
+  return ranked.slice(0, 1).map((chunk) => chunk.docId);
+}
+
+function applyMeshExpansion(
+  chunk: ChunkRecord,
+  meshMatch?: { score: number; hits: string[] }
+): ChunkRecord {
+  if (!meshMatch) {
+    return chunk;
+  }
+
+  const meshBoost = Math.min(0.18, meshMatch.score * 0.08);
+  const total = (chunk.score ?? 0) + meshBoost;
+
+  return {
+    ...chunk,
+    score: total,
+    relationHits: Array.from(new Set([...(chunk.relationHits ?? []), ...meshMatch.hits.map((hit) => `mesh:${hit}`)])),
+    scoreDetails: chunk.scoreDetails
+      ? {
+          ...chunk.scoreDetails,
+          relationBoost: round4((chunk.scoreDetails.relationBoost ?? 0) + meshBoost),
+          total: round4(total)
+        }
+      : undefined
   };
 }
 

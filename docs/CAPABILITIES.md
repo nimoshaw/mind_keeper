@@ -10,6 +10,7 @@ This file tracks what is already live in the current project and what still belo
 - Parser-backed symbol extraction for TypeScript, JavaScript, Python, Go, Rust, and Java
 - Hybrid recall with vector, lexical, source-priority, branch, feedback, and relation-aware boosts
 - `context_for_task` with intent-first planning, confidence-aware stopping, per-wave budgets, task-stage, token-budget, and light-wave gating
+- one-hop memory mesh expansion on top of relation-aware graph edges
 - `recallFast` and `recallDeep`
 - Write-time session distillation into `discard / diary / decision / knowledge`
 - Source hygiene with disable/enable, feedback, stale archiving, conflict detection, and consolidation
