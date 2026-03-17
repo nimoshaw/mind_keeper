@@ -27,22 +27,22 @@ test("source feedback can down-rank noisy memories and up-rank helpful ones", as
       tags: ["diagnostics", "retrieval"]
     });
 
-    await service.rateSource({
+    const helpfulVote1 = await service.rateSource({
       projectRoot,
       docId: helpful.docId,
       signal: "helpful"
     });
-    await service.rateSource({
+    const helpfulVote2 = await service.rateSource({
       projectRoot,
       docId: helpful.docId,
       signal: "helpful"
     });
-    await service.rateSource({
+    const noisyVote1 = await service.rateSource({
       projectRoot,
       docId: noisy.docId,
       signal: "noisy"
     });
-    await service.rateSource({
+    const noisyVote2 = await service.rateSource({
       projectRoot,
       docId: noisy.docId,
       signal: "noisy"
@@ -67,6 +67,14 @@ test("source feedback can down-rank noisy memories and up-rank helpful ones", as
     const noisyResult = results[noisyIndex];
     assert.ok((helpfulResult.scoreDetails?.feedbackBoost ?? 0) > 0);
     assert.ok((noisyResult.scoreDetails?.feedbackBoost ?? 0) < 0);
+    assert.ok(helpfulResult.explainReasons?.includes("helpful feedback history"));
+    assert.ok(noisyResult.explainReasons?.includes("noisy feedback penalty"));
+    assert.equal(helpfulVote1.helpfulVotes, 1);
+    assert.equal(helpfulVote2.helpfulVotes, 2);
+    assert.equal(helpfulVote2.netFeedback, 2);
+    assert.equal(noisyVote1.noisyVotes, 1);
+    assert.equal(noisyVote2.noisyVotes, 2);
+    assert.equal(noisyVote2.netFeedback, -2);
 
     const listed = await service.listSources(projectRoot);
     const helpfulSource = listed.find((item) => item.docId === helpful.docId);

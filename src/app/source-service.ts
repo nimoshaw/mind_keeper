@@ -92,7 +92,15 @@ export class SourceService {
     }
   }
 
-  async rateSource(input: RateSourceInput): Promise<{ updated: boolean; docId: string | null; signal: "helpful" | "noisy"; reason: string }> {
+  async rateSource(input: RateSourceInput): Promise<{
+    updated: boolean;
+    docId: string | null;
+    signal: "helpful" | "noisy";
+    helpfulVotes: number;
+    noisyVotes: number;
+    netFeedback: number;
+    reason: string;
+  }> {
     const storage = new MindKeeperStorage(input.projectRoot);
     try {
       const docId = resolveDocId(storage, input.docId, input.path);
@@ -101,15 +109,22 @@ export class SourceService {
           updated: false,
           docId: null,
           signal: input.signal,
+          helpfulVotes: 0,
+          noisyVotes: 0,
+          netFeedback: 0,
           reason: "No matching memory source was found."
         };
       }
 
       storage.recordSourceFeedback(docId, input.signal);
+      const source = storage.listSources().find((item) => item.docId === docId);
       return {
         updated: true,
         docId,
         signal: input.signal,
+        helpfulVotes: source?.helpfulVotes ?? 0,
+        noisyVotes: source?.noisyVotes ?? 0,
+        netFeedback: (source?.helpfulVotes ?? 0) - (source?.noisyVotes ?? 0),
         reason: input.signal === "helpful"
           ? "Recorded a helpful signal for this memory source."
           : "Recorded a noisy signal for this memory source."

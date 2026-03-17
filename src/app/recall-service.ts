@@ -1227,6 +1227,9 @@ function annotateChunkExplain(chunk: ChunkRecord): ChunkRecord {
   if ((chunk.scoreDetails.feedbackBoost ?? 0) > 0.04) {
     reasons.push("helpful feedback history");
   }
+  if ((chunk.scoreDetails.feedbackBoost ?? 0) < -0.04) {
+    reasons.push("noisy feedback penalty");
+  }
   if ((chunk.scoreDetails.relationBoost ?? 0) > 0.04 || (chunk.relationHits?.length ?? 0) > 0) {
     reasons.push("memory graph relation hit");
   }
