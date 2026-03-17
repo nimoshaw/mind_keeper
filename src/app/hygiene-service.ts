@@ -235,6 +235,69 @@ export class HygieneService {
     }
   }
 
+  async planConflictResolutions(input: {
+    projectRoot: string;
+    topK?: number;
+    minScore?: number;
+    includeDisabled?: boolean;
+  }): Promise<Array<{
+    subject: string;
+    docIds: string[];
+    titles: string[];
+    score: number;
+    consolidateInput: {
+      docIds: string[];
+      title: string;
+      kind: "decision";
+      moduleName?: string;
+      tags: string[];
+      disableInputs: boolean;
+    };
+    rememberDecisionDraft: {
+      title: string;
+      decision: string;
+      rationale: string;
+      impact: string;
+      moduleName?: string;
+      tags: string[];
+    };
+  }>> {
+    const suggestions = await this.suggestConflictResolutions(input);
+    return suggestions.map((suggestion) => {
+      const moduleName = inferModuleNameFromTitles(suggestion.titles);
+      const tags = Array.from(new Set([
+        ...suggestion.suggestedTags,
+        moduleName ?? "project-memory"
+      ]));
+
+      return {
+        subject: suggestion.subject,
+        docIds: suggestion.docIds,
+        titles: suggestion.titles,
+        score: suggestion.score,
+        consolidateInput: {
+          docIds: suggestion.docIds,
+          title: suggestion.suggestedTitle,
+          kind: "decision",
+          moduleName,
+          tags,
+          disableInputs: suggestion.disableInputsRecommended
+        },
+        rememberDecisionDraft: {
+          title: suggestion.suggestedTitle,
+          decision: `Adopt one canonical policy for ${humanizeSubject(suggestion.subject)} and retire conflicting guidance.`,
+          rationale: [
+            `Mind Keeper detected conflicting decision memories around ${humanizeSubject(suggestion.subject)}.`,
+            `Source decisions: ${suggestion.titles.join("; ")}.`
+          ].join(" "),
+          impact: `After review, retrieval should prefer this canonical decision and older conflicting entries should be disabled or archived.`,
+          moduleName,
+          tags
+        }
+      };
+    });
+  }
+
   async consolidateMemories(input: {
     projectRoot: string;
     docIds: string[];
@@ -715,6 +778,23 @@ function dedupeReasons(reasons: string[]): string[] {
     output.push(reason);
   }
   return output;
+}
+
+function inferModuleNameFromTitles(titles: string[]): string | undefined {
+  const normalized = titles
+    .flatMap((title) => tokenizeForConsolidation(title))
+    .filter((token) => !["prefer", "avoid", "choose", "canonical", "decision", "policy", "do", "not", "use"].includes(token));
+  const counts = new Map<string, number>();
+  for (const token of normalized) {
+    counts.set(token, (counts.get(token) ?? 0) + 1);
+  }
+  const winner = Array.from(counts.entries())
+    .sort((left, right) => right[1] - left[1] || right[0].length - left[0].length)[0]?.[0];
+  return winner && winner.length >= 4 ? winner : undefined;
+}
+
+function humanizeSubject(subject: string): string {
+  return subject.replace(/[-_/]+/g, " ").trim();
 }
 
 function parentBucket(filePath: string): string {

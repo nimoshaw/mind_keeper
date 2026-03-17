@@ -15,6 +15,7 @@ This file is the clean status snapshot for the current build.
 - Suggestion-driven consolidation scanning: done
 - Subject-level conflict clustering: done
 - Conflict-resolution suggestions: done
+- Conflict-resolution plans: done
 
 ## Quick Status Command
 
@@ -49,6 +50,7 @@ For future maintainers, the main extension map lives in:
 - Relation-aware rerank using lightweight graph edges
 - Governance tools for stale archive, conflict listing, conflict clustering, and memory consolidation
 - Governance tools now bridge conflict clusters into resolution suggestions before consolidation
+- Governance tools now expose executable resolution plans before consolidation
 - `verify`, benchmark checks, and smoke coverage
 
 ## What `verify` Covers Directly
@@ -67,6 +69,7 @@ The current `npm run verify` path now exercises:
 - conflict detection
 - conflict clustering
 - conflict-resolution suggestions
+- conflict-resolution plans
 - memory consolidation
 - compile/build integrity
 

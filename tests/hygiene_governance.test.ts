@@ -165,6 +165,47 @@ test("suggestConflictResolutions turns a conflict cluster into a canonical decis
   }
 });
 
+test("planConflictResolutions returns executable templates for consolidation and canonical decision drafting", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflict-plan-"));
+  const service = new MindKeeperService();
+
+  try {
+    const first = await service.rememberDecision({
+      projectRoot,
+      title: "Prefer hash-local embeddings for local work",
+      decision: "Prefer hash-local for local development and fast recall experiments.",
+      moduleName: "retrieval",
+      tags: ["embedding", "local"]
+    });
+    const second = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use hash-local embeddings",
+      decision: "Do not use hash-local in this workflow because the policy changed.",
+      moduleName: "retrieval",
+      tags: ["embedding", "policy"]
+    });
+
+    const plans = await service.planConflictResolutions({
+      projectRoot,
+      topK: 5,
+      minScore: 0.6
+    });
+
+    assert.ok(plans.length >= 1);
+    const top = plans[0];
+    assert.equal(top.subject, "hash-local");
+    assert.equal(top.consolidateInput.kind, "decision");
+    assert.ok(top.consolidateInput.docIds.includes(first.docId));
+    assert.ok(top.consolidateInput.docIds.includes(second.docId));
+    assert.ok(top.consolidateInput.tags.includes("conflict-resolution"));
+    assert.ok(top.rememberDecisionDraft.title.toLowerCase().includes("hash local"));
+    assert.match(top.rememberDecisionDraft.decision, /canonical policy/i);
+    assert.match(top.rememberDecisionDraft.impact, /retrieval should prefer/i);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("consolidateMemories merges related notes into stable knowledge and can disable inputs", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-consolidate-"));
   const service = new MindKeeperService();

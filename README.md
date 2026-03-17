@@ -61,6 +61,7 @@ Implemented today:
 - stale archive, conflict listing, and consolidation
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
+- conflict-resolution plans with ready-to-run consolidation templates
 - consolidation suggestions before manual merge
 - benchmark, smoke, and release-check flows
 
@@ -154,6 +155,7 @@ Development-time MCP command:
 - `list_conflicts`
 - `list_conflict_clusters`
 - `suggest_conflict_resolutions`
+- `plan_conflict_resolutions`
 - `suggest_consolidations`
 - `consolidate_memories`
 

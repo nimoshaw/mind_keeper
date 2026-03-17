@@ -14,6 +14,7 @@ Before calling the current build ready, also confirm:
   - `list_conflicts`
   - `list_conflict_clusters`
   - `suggest_conflict_resolutions`
+  - `plan_conflict_resolutions`
   - `suggest_consolidations`
   - `consolidate_memories`
 - `npm run verify` exercises those paths end to end without manual setup
@@ -30,6 +31,7 @@ The current build now includes:
 - Phase 5 hygiene tooling for archive, conflict inspection, and consolidation
 - V2 drift review with subject-level conflict clustering
 - V2 conflict-resolution suggestions for canonical decision drafts
+- V2 conflict-resolution plans for executable consolidation handoff
 
 ## Recommended Commands
 

@@ -11,6 +11,7 @@ This addendum covers the newer regression surface that arrived after the earlier
 - conflict detection across decision memories
 - subject-level conflict clustering for grouped decision drift review
 - conflict-resolution suggestions for canonical decision drafting
+- conflict-resolution plans with executable templates
 - memory consolidation into stable knowledge/decision notes
 
 ## New Test Entry Points
@@ -35,6 +36,7 @@ The current `verify` path now exercises:
 - conflict detection
 - conflict clustering
 - conflict-resolution suggestions
+- conflict-resolution plans
 - memory consolidation
 - compile/build integrity
 

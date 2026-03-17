@@ -603,6 +603,33 @@ server.tool(
 );
 
 server.tool(
+  "plan_conflict_resolutions",
+  "Prepare executable templates for conflict resolution, including consolidate_memories input and a remember_decision draft.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    top_k: z.number().int().positive().max(50).optional().describe("Maximum number of conflict resolution plans to return."),
+    min_score: z.number().min(0).max(1).optional().describe("Only return plans at or above this score."),
+    include_disabled: z.boolean().optional().describe("Include disabled decision memories when building resolution plans.")
+  },
+  async ({ project_root, top_k, min_score, include_disabled }) => {
+    const result = await service.planConflictResolutions({
+      projectRoot: project_root,
+      topK: top_k,
+      minScore: min_score,
+      includeDisabled: include_disabled
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "suggest_consolidations",
   "Suggest groups of related memories that look similar enough to consolidate into one stable note.",
   {

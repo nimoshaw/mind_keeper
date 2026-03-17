@@ -19,6 +19,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
   Groups related conflict pairs into one subject-level view so teams can review policy drift without scanning every pair manually.
 - `suggest_conflict_resolutions`
   Turns a conflict cluster into a ready-to-review canonical decision candidate, including a suggested title, tags, and the exact `docIds` to feed into consolidation.
+- `plan_conflict_resolutions`
+  Returns executable templates for the next step, including a `consolidate_memories` payload and a `remember_decision` draft.
 - `suggest_consolidations`
   Scans related memories and proposes which ones look similar enough to merge before you run a real consolidation.
 - `consolidate_memories`
@@ -33,8 +35,9 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 5. Use `list_conflicts` to inspect raw opposing pairs.
 6. Use `list_conflict_clusters` to review the higher-level drift theme behind those pairs.
 7. Use `suggest_conflict_resolutions` when a conflict cluster should collapse into one canonical decision.
-8. Use `suggest_consolidations` to find merge candidates before touching stored memories.
-9. Use `consolidate_memories` once you agree with one of the suggestions.
+8. Use `plan_conflict_resolutions` when you want a ready-to-run template for the actual resolution step.
+9. Use `suggest_consolidations` to find merge candidates before touching stored memories.
+10. Use `consolidate_memories` once you agree with one of the suggestions.
 
 ## Explain Fields You Now See
 

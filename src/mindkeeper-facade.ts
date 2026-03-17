@@ -132,6 +132,15 @@ export class MindKeeperService {
     return this.hygieneService.suggestConflictResolutions(input);
   }
 
+  async planConflictResolutions(input: {
+    projectRoot: string;
+    topK?: number;
+    minScore?: number;
+    includeDisabled?: boolean;
+  }) {
+    return this.hygieneService.planConflictResolutions(input);
+  }
+
   async suggestConsolidations(input: {
     projectRoot: string;
     topK?: number;
