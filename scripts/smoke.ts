@@ -220,6 +220,15 @@ async function main(): Promise<void> {
     );
     assert.ok(conflictClusters.some((item) => item.subject.includes("sqlite")));
 
+    const conflictResolutions = await timed("suggest_conflict_resolutions", steps, async () =>
+      service.suggestConflictResolutions({
+        projectRoot,
+        topK: 5,
+        minScore: 0.6
+      })
+    );
+    assert.ok(conflictResolutions.some((item) => item.subject.includes("sqlite")));
+
     const consolidated = await timed("consolidate_memories", steps, async () =>
       service.consolidateMemories({
         projectRoot,
@@ -253,6 +262,7 @@ async function main(): Promise<void> {
         archivedCount: archived.archivedCount,
         conflictCount: conflicts.length,
         conflictClusterCount: conflictClusters.length,
+        conflictResolutionCount: conflictResolutions.length,
         consolidatedDocId: consolidated.docId
       }
     };

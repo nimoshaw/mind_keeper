@@ -60,6 +60,7 @@ Implemented today:
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation
 - conflict clustering for decision drift review
+- conflict-resolution suggestions that bridge drift review into consolidation
 - consolidation suggestions before manual merge
 - benchmark, smoke, and release-check flows
 
@@ -152,6 +153,7 @@ Development-time MCP command:
 - `archive_stale_memories`
 - `list_conflicts`
 - `list_conflict_clusters`
+- `suggest_conflict_resolutions`
 - `suggest_consolidations`
 - `consolidate_memories`
 

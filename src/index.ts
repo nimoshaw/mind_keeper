@@ -576,6 +576,33 @@ server.tool(
 );
 
 server.tool(
+  "suggest_conflict_resolutions",
+  "Turn conflict clusters into suggested canonical decision candidates so teams can move from drift review to consolidation.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    top_k: z.number().int().positive().max(50).optional().describe("Maximum number of suggested conflict resolutions to return."),
+    min_score: z.number().min(0).max(1).optional().describe("Only return resolution suggestions at or above this score."),
+    include_disabled: z.boolean().optional().describe("Include disabled decision memories when building resolution candidates.")
+  },
+  async ({ project_root, top_k, min_score, include_disabled }) => {
+    const result = await service.suggestConflictResolutions({
+      projectRoot: project_root,
+      topK: top_k,
+      minScore: min_score,
+      includeDisabled: include_disabled
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "suggest_consolidations",
   "Suggest groups of related memories that look similar enough to consolidate into one stable note.",
   {

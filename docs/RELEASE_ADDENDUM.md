@@ -13,6 +13,7 @@ Before calling the current build ready, also confirm:
   - `archive_stale_memories`
   - `list_conflicts`
   - `list_conflict_clusters`
+  - `suggest_conflict_resolutions`
   - `suggest_consolidations`
   - `consolidate_memories`
 - `npm run verify` exercises those paths end to end without manual setup
@@ -28,6 +29,7 @@ The current build now includes:
 - Phase 4 lightweight graph edges with relation-aware rerank
 - Phase 5 hygiene tooling for archive, conflict inspection, and consolidation
 - V2 drift review with subject-level conflict clustering
+- V2 conflict-resolution suggestions for canonical decision drafts
 
 ## Recommended Commands
 

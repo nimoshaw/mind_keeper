@@ -116,6 +116,55 @@ test("listConflictClusters groups related decision drift into one subject cluste
   }
 });
 
+test("suggestConflictResolutions turns a conflict cluster into a canonical decision candidate", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflict-resolution-"));
+  const service = new MindKeeperService();
+
+  try {
+    const first = await service.rememberDecision({
+      projectRoot,
+      title: "Prefer hash-local embeddings for local work",
+      decision: "Prefer hash-local for local development and fast recall experiments.",
+      moduleName: "retrieval",
+      tags: ["embedding", "local"]
+    });
+    const second = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use hash-local embeddings",
+      decision: "Do not use hash-local in this workflow because the policy changed.",
+      moduleName: "retrieval",
+      tags: ["embedding", "policy"]
+    });
+    const third = await service.rememberDecision({
+      projectRoot,
+      title: "Choose hash-local during offline prototyping",
+      decision: "Choose hash-local when running offline prototyping on this module.",
+      moduleName: "retrieval",
+      tags: ["embedding", "prototype"]
+    });
+
+    const suggestions = await service.suggestConflictResolutions({
+      projectRoot,
+      topK: 5,
+      minScore: 0.6
+    });
+
+    assert.ok(suggestions.length >= 1);
+    const top = suggestions[0];
+    assert.equal(top.subject, "hash-local");
+    assert.equal(top.suggestedKind, "decision");
+    assert.ok(top.docIds.includes(first.docId));
+    assert.ok(top.docIds.includes(second.docId));
+    assert.ok(top.docIds.includes(third.docId));
+    assert.ok(top.suggestedTitle.toLowerCase().includes("hash local"));
+    assert.ok(top.suggestedTags.includes("conflict-resolution"));
+    assert.equal(top.disableInputsRecommended, true);
+    assert.match(top.suggestedAction, /consolidate_memories/i);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("consolidateMemories merges related notes into stable knowledge and can disable inputs", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-consolidate-"));
   const service = new MindKeeperService();

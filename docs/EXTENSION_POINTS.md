@@ -88,6 +88,7 @@ What to add:
 
 - new archive policies
 - deeper conflict clustering or semantic contradiction analysis
+- richer conflict-to-resolution suggestion ranking
 - stronger consolidation suggestion ranking
 
 Keep in mind:

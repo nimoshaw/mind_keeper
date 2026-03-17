@@ -175,52 +175,61 @@ export class HygieneService {
     const storage = new MindKeeperStorage(input.projectRoot);
     try {
       const decisions = storage.listSources().filter((item) => item.sourceKind === "decision");
-      const contents = new Map<string, string>();
-      await Promise.all(decisions.map(async (item) => {
-        contents.set(item.docId, await safeReadText(item.path));
-      }));
-
-      const conflictPairs = buildConflictPairs(decisions, contents);
-      if (conflictPairs.length === 0) {
-        return [];
-      }
-
-      const decisionMap = new Map(decisions.map((item) => [item.docId, item]));
-      const grouped = new Map<string, ConflictPair[]>();
-      for (const pair of conflictPairs) {
-        const current = grouped.get(pair.subject) ?? [];
-        current.push(pair);
-        grouped.set(pair.subject, current);
-      }
-
-      return Array.from(grouped.entries())
-        .map(([subject, pairs]) => {
-          const docIds = Array.from(new Set(pairs.flatMap((pair) => [pair.leftDocId, pair.rightDocId])));
-          const docs = docIds
-            .map((docId) => decisionMap.get(docId))
-            .filter((item): item is MemorySourceRecord => Boolean(item))
-            .sort((left, right) => right.updatedAt - left.updatedAt);
-          const scoreBase = pairs.reduce((sum, pair) => sum + pair.score, 0) / pairs.length;
-          const docSpreadBoost = Math.min(0.12, Math.max(0, docs.length - 2) * 0.05);
-          const pairDensityBoost = Math.min(0.06, Math.max(0, pairs.length - 1) * 0.02);
-          const reasons = dedupeReasons([
-            `Multiple decisions disagree on "${subject}".`,
-            ...pairs.map((pair) => pair.reason)
-          ]);
-
-          return {
-            subject,
-            docIds: docs.map((item) => item.docId),
-            titles: docs.map((item) => item.title ?? item.docId),
-            docCount: docs.length,
-            pairCount: pairs.length,
-            score: round4(Math.min(1, scoreBase + docSpreadBoost + pairDensityBoost)),
-            reasons: reasons.slice(0, 5),
-            suggestedAction: `Review and consolidate ${docs.length} conflicting decisions about "${subject}".`
-          };
-        })
+      return buildConflictClusters(decisions, await buildContentsMap(decisions))
         .sort((left, right) => right.score - left.score || right.docCount - left.docCount || right.pairCount - left.pairCount)
         .slice(0, input.topK ?? 8);
+    } finally {
+      storage.close();
+    }
+  }
+
+  async suggestConflictResolutions(input: {
+    projectRoot: string;
+    topK?: number;
+    minScore?: number;
+    includeDisabled?: boolean;
+  }): Promise<Array<{
+    subject: string;
+    docIds: string[];
+    titles: string[];
+    suggestedTitle: string;
+    suggestedKind: "decision";
+    suggestedTags: string[];
+    score: number;
+    reasons: string[];
+    suggestedAction: string;
+    disableInputsRecommended: boolean;
+  }>> {
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const decisions = storage
+        .listSources()
+        .filter((item) => item.sourceKind === "decision")
+        .filter((item) => input.includeDisabled ? true : !item.isDisabled);
+      const contents = await buildContentsMap(decisions);
+      const clusters = buildConflictClusters(decisions, contents);
+      const minScore = input.minScore ?? 0.68;
+
+      return clusters
+        .filter((cluster) => cluster.score >= minScore)
+        .map((cluster) => ({
+          subject: cluster.subject,
+          docIds: cluster.docIds,
+          titles: cluster.titles,
+          suggestedTitle: suggestConflictResolutionTitle(cluster),
+          suggestedKind: "decision" as const,
+          suggestedTags: Array.from(new Set(["conflict-resolution", cluster.subject, "decision-drift"])),
+          score: round4(cluster.score + 0.04),
+          reasons: dedupeReasons([
+            ...cluster.reasons,
+            `This cluster is strong enough to draft one canonical decision for "${cluster.subject}".`
+          ]).slice(0, 5),
+          suggestedAction: `Review this cluster, then run consolidate_memories with kind=decision to publish one canonical policy for "${cluster.subject}".`,
+          disableInputsRecommended: cluster.docCount <= 5
+        }))
+        .sort((left, right) => right.score - left.score || right.docIds.length - left.docIds.length)
+        .slice(0, input.topK ?? 6);
     } finally {
       storage.close();
     }
@@ -351,6 +360,17 @@ type ConflictPair = {
   reason: string;
 };
 
+type ConflictCluster = {
+  subject: string;
+  docIds: string[];
+  titles: string[];
+  docCount: number;
+  pairCount: number;
+  score: number;
+  reasons: string[];
+  suggestedAction: string;
+};
+
 function extractDecisionClaims(text: string): DecisionClaim[] {
   const normalized = text.toLowerCase();
   const patterns: Array<{ regex: RegExp; polarity: "positive" | "negative"; confidence: number }> = [
@@ -424,6 +444,14 @@ function round4(value: number): number {
   return Math.round(value * 10000) / 10000;
 }
 
+async function buildContentsMap(candidates: MemorySourceRecord[]): Promise<Map<string, string>> {
+  const contents = new Map<string, string>();
+  await Promise.all(candidates.map(async (item) => {
+    contents.set(item.docId, await safeReadText(item.path));
+  }));
+  return contents;
+}
+
 function buildConflictPairs(
   decisions: MemorySourceRecord[],
   contents: Map<string, string>
@@ -458,6 +486,50 @@ function buildConflictPairs(
   }
 
   return conflicts;
+}
+
+function buildConflictClusters(
+  decisions: MemorySourceRecord[],
+  contents: Map<string, string>
+): ConflictCluster[] {
+  const conflictPairs = buildConflictPairs(decisions, contents);
+  if (conflictPairs.length === 0) {
+    return [];
+  }
+
+  const decisionMap = new Map(decisions.map((item) => [item.docId, item]));
+  const grouped = new Map<string, ConflictPair[]>();
+  for (const pair of conflictPairs) {
+    const current = grouped.get(pair.subject) ?? [];
+    current.push(pair);
+    grouped.set(pair.subject, current);
+  }
+
+  return Array.from(grouped.entries()).map(([subject, pairs]) => {
+    const docIds = Array.from(new Set(pairs.flatMap((pair) => [pair.leftDocId, pair.rightDocId])));
+    const docs = docIds
+      .map((docId) => decisionMap.get(docId))
+      .filter((item): item is MemorySourceRecord => Boolean(item))
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+    const scoreBase = pairs.reduce((sum, pair) => sum + pair.score, 0) / pairs.length;
+    const docSpreadBoost = Math.min(0.12, Math.max(0, docs.length - 2) * 0.05);
+    const pairDensityBoost = Math.min(0.06, Math.max(0, pairs.length - 1) * 0.02);
+    const reasons = dedupeReasons([
+      `Multiple decisions disagree on "${subject}".`,
+      ...pairs.map((pair) => pair.reason)
+    ]);
+
+    return {
+      subject,
+      docIds: docs.map((item) => item.docId),
+      titles: docs.map((item) => item.title ?? item.docId),
+      docCount: docs.length,
+      pairCount: pairs.length,
+      score: round4(Math.min(1, scoreBase + docSpreadBoost + pairDensityBoost)),
+      reasons: reasons.slice(0, 5),
+      suggestedAction: `Review and consolidate ${docs.length} conflicting decisions about "${subject}".`
+    };
+  });
 }
 
 function scoreConsolidationPair(
@@ -622,6 +694,14 @@ function suggestConsolidationTitle(docs: MemorySourceRecord[]): string {
   }
 
   return "Consolidated related memories";
+}
+
+function suggestConflictResolutionTitle(cluster: ConflictCluster): string {
+  const normalizedSubject = cluster.subject.replace(/[-_/]+/g, " ").trim();
+  if (normalizedSubject.length > 0) {
+    return `Canonical ${normalizedSubject} decision`;
+  }
+  return "Canonical conflict resolution decision";
 }
 
 function dedupeReasons(reasons: string[]): string[] {

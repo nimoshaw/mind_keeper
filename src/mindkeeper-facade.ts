@@ -123,6 +123,15 @@ export class MindKeeperService {
     return this.hygieneService.listConflictClusters(input);
   }
 
+  async suggestConflictResolutions(input: {
+    projectRoot: string;
+    topK?: number;
+    minScore?: number;
+    includeDisabled?: boolean;
+  }) {
+    return this.hygieneService.suggestConflictResolutions(input);
+  }
+
   async suggestConsolidations(input: {
     projectRoot: string;
     topK?: number;

@@ -10,6 +10,7 @@ This addendum covers the newer regression surface that arrived after the earlier
 - stale memory archiving into the `cold` tier
 - conflict detection across decision memories
 - subject-level conflict clustering for grouped decision drift review
+- conflict-resolution suggestions for canonical decision drafting
 - memory consolidation into stable knowledge/decision notes
 
 ## New Test Entry Points
@@ -33,6 +34,7 @@ The current `verify` path now exercises:
 - stale archive
 - conflict detection
 - conflict clustering
+- conflict-resolution suggestions
 - memory consolidation
 - compile/build integrity
 
