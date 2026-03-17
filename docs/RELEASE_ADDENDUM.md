@@ -19,6 +19,7 @@ Before calling the current build ready, also confirm:
   - `execute_conflict_resolution_plan`
   - `verify_conflict_resolution_execution`
   - `suggest_conflict_resolution_followup`
+  - `execute_conflict_resolution_followup`
   - `suggest_consolidations`
   - `consolidate_memories`
 - `npm run verify` exercises those paths end to end without manual setup
@@ -39,6 +40,7 @@ The current build now includes:
 - V2 canonical decision execution from reviewed plans
 - V2 safety checks before and after conflict-resolution execution
 - V2 follow-up strategy suggestions after canonical decision execution
+- V2 executable follow-up cleanup after canonical decision execution
 
 ## Recommended Commands
 

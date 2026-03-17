@@ -748,6 +748,37 @@ server.tool(
 );
 
 server.tool(
+  "execute_conflict_resolution_followup",
+  "Execute the recommended follow-up action after canonical conflict resolution, such as disabling active superseded decisions or archiving stale disabled ones.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    canonical_doc_id: z.string().min(1).describe("The canonical decision doc id produced by execution."),
+    superseded_doc_ids: z.array(z.string()).optional().describe("The superseded decision doc ids to act on."),
+    action: z.enum(["disable", "archive", "keep_both", "review"]).optional().describe("Optional explicit action. Defaults to the current follow-up recommendation."),
+    archive_after_days: z.number().int().positive().max(3650).optional().describe("Treat disabled superseded decisions older than this many days as archive candidates. Defaults to 45."),
+    reason: z.string().optional().describe("Optional audit note stored alongside follow-up actions.")
+  },
+  async ({ project_root, canonical_doc_id, superseded_doc_ids, action, archive_after_days, reason }) => {
+    const result = await service.executeConflictResolutionFollowup({
+      projectRoot: project_root,
+      canonicalDocId: canonical_doc_id,
+      supersededDocIds: superseded_doc_ids,
+      action,
+      archiveAfterDays: archive_after_days,
+      reason
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "suggest_consolidations",
   "Suggest groups of related memories that look similar enough to consolidate into one stable note.",
   {

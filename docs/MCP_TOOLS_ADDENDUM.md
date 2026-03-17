@@ -29,6 +29,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
   Confirms that the canonical decision exists afterward and that the superseded decisions were disabled as expected.
 - `suggest_conflict_resolution_followup`
   Recommends the next governance action after execution, such as `disable`, `archive`, `keep_both`, or `review`.
+- `execute_conflict_resolution_followup`
+  Executes that next governance action so superseded conflict notes can be disabled, archived into the cold tier, or explicitly left alone.
 - `suggest_consolidations`
   Scans related memories and proposes which ones look similar enough to merge before you run a real consolidation.
 - `consolidate_memories`
@@ -48,8 +50,9 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 10. Use `execute_conflict_resolution_plan` after review when you are ready to publish the canonical decision and optionally disable the old ones.
 11. Use `verify_conflict_resolution_execution` right after execution to confirm the canonical entry and superseded states are correct.
 12. Use `suggest_conflict_resolution_followup` to decide whether the old conflicting entries should be disabled, archived, or left as-is.
-13. Use `suggest_consolidations` to find merge candidates before touching stored memories.
-14. Use `consolidate_memories` once you agree with one of the suggestions.
+13. Use `execute_conflict_resolution_followup` to carry out that cleanup action without manually stitching together extra hygiene calls.
+14. Use `suggest_consolidations` to find merge candidates before touching stored memories.
+15. Use `consolidate_memories` once you agree with one of the suggestions.
 
 ## Explain Fields You Now See
 

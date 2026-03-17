@@ -15,6 +15,7 @@ This addendum covers the newer regression surface that arrived after the earlier
 - canonical decision execution from reviewed resolution plans
 - conflict-resolution preflight validation and post-execution verification
 - follow-up action suggestions after conflict-resolution execution
+- follow-up action execution after conflict-resolution execution
 - memory consolidation into stable knowledge/decision notes
 
 ## New Test Entry Points
@@ -43,6 +44,7 @@ The current `verify` path now exercises:
 - conflict-resolution execution
 - conflict-resolution safety checks
 - conflict-resolution follow-up suggestions
+- conflict-resolution follow-up execution
 - memory consolidation
 - compile/build integrity
 

@@ -19,6 +19,7 @@ This file is the clean status snapshot for the current build.
 - Conflict-resolution execution: done
 - Conflict-resolution safety checks: done
 - Conflict-resolution follow-up suggestions: done
+- Conflict-resolution follow-up execution: done
 
 ## Quick Status Command
 
@@ -57,6 +58,7 @@ For future maintainers, the main extension map lives in:
 - Governance tools can now publish one canonical decision from a reviewed resolution plan
 - Governance tools now validate plans before execution and verify results afterward
 - Governance tools now suggest the next follow-up action after canonical decision execution
+- Governance tools can now execute the recommended follow-up cleanup for superseded conflicts
 - `verify`, benchmark checks, and smoke coverage
 
 ## What `verify` Covers Directly
@@ -79,6 +81,7 @@ The current `npm run verify` path now exercises:
 - conflict-resolution execution
 - conflict-resolution safety checks
 - conflict-resolution follow-up suggestions
+- conflict-resolution follow-up execution
 - memory consolidation
 - compile/build integrity
 

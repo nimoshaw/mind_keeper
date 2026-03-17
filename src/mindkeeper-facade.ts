@@ -182,6 +182,17 @@ export class MindKeeperService {
     return this.hygieneService.suggestConflictResolutionFollowup(input);
   }
 
+  async executeConflictResolutionFollowup(input: {
+    projectRoot: string;
+    canonicalDocId: string;
+    supersededDocIds?: string[];
+    action?: "disable" | "archive" | "keep_both" | "review";
+    archiveAfterDays?: number;
+    reason?: string;
+  }) {
+    return this.hygieneService.executeConflictResolutionFollowup(input);
+  }
+
   async suggestConsolidations(input: {
     projectRoot: string;
     topK?: number;

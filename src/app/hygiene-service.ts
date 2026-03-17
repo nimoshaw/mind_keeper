@@ -554,6 +554,123 @@ export class HygieneService {
     }
   }
 
+  async executeConflictResolutionFollowup(input: {
+    projectRoot: string;
+    canonicalDocId: string;
+    supersededDocIds?: string[];
+    action?: "disable" | "archive" | "keep_both" | "review";
+    archiveAfterDays?: number;
+    reason?: string;
+  }): Promise<{
+    executed: boolean;
+    action: "disable" | "archive" | "keep_both" | "review";
+    disabledCount: number;
+    archivedCount: number;
+    affectedDocIds: string[];
+    reviewRequired: boolean;
+    reason: string;
+    warnings: string[];
+  }> {
+    const followup = await this.suggestConflictResolutionFollowup({
+      projectRoot: input.projectRoot,
+      canonicalDocId: input.canonicalDocId,
+      supersededDocIds: input.supersededDocIds,
+      archiveAfterDays: input.archiveAfterDays
+    });
+
+    const action = input.action ?? followup.recommendedAction;
+    const warnings = [...followup.warnings];
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const superseded = storage.listSources().filter((item) => (input.supersededDocIds ?? []).includes(item.docId));
+
+      if (action === "review") {
+        return {
+          executed: false,
+          action,
+          disabledCount: 0,
+          archivedCount: 0,
+          affectedDocIds: [],
+          reviewRequired: true,
+          reason: input.reason ?? followup.reason,
+          warnings
+        };
+      }
+
+      if (action === "keep_both") {
+        return {
+          executed: true,
+          action,
+          disabledCount: 0,
+          archivedCount: 0,
+          affectedDocIds: superseded.map((item) => item.docId),
+          reviewRequired: false,
+          reason: input.reason ?? followup.reason,
+          warnings
+        };
+      }
+
+      if (action === "disable") {
+        let disabledCount = 0;
+        const affectedDocIds: string[] = [];
+        for (const item of superseded) {
+          if (item.isDisabled) {
+            continue;
+          }
+          storage.disableSource(
+            item.docId,
+            input.reason ?? `Disabled after canonical conflict resolution ${input.canonicalDocId}.`
+          );
+          disabledCount += 1;
+          affectedDocIds.push(item.docId);
+        }
+
+        if (superseded.length > 0 && disabledCount === 0) {
+          warnings.push("All superseded documents were already disabled before the follow-up action ran.");
+        }
+
+        return {
+          executed: true,
+          action,
+          disabledCount,
+          archivedCount: 0,
+          affectedDocIds,
+          reviewRequired: false,
+          reason: input.reason ?? followup.reason,
+          warnings
+        };
+      }
+
+      const archiveTargets = superseded.filter((item) => followup.archiveCandidateDocIds.includes(item.docId));
+      for (const item of archiveTargets) {
+        storage.updateDocumentMetadata({
+          docId: item.docId,
+          memoryTier: "cold",
+          stabilityScore: 0.3,
+          distillReason: input.reason ?? `Archived after canonical conflict resolution ${input.canonicalDocId}.`
+        });
+      }
+
+      if (followup.archiveCandidateDocIds.length === 0) {
+        warnings.push("No superseded documents currently satisfy the archive policy.");
+      }
+
+      return {
+        executed: true,
+        action,
+        disabledCount: 0,
+        archivedCount: archiveTargets.length,
+        affectedDocIds: archiveTargets.map((item) => item.docId),
+        reviewRequired: false,
+        reason: input.reason ?? followup.reason,
+        warnings
+      };
+    } finally {
+      storage.close();
+    }
+  }
+
   async consolidateMemories(input: {
     projectRoot: string;
     docIds: string[];
