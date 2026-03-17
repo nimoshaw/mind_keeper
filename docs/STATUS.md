@@ -13,6 +13,7 @@ This file is the clean status snapshot for the current build.
 - Per-wave budgeting: done
 - One-hop memory mesh expansion: done
 - Conflict-aware wave gating: done
+- Adaptive deep-wave triggering: done
 - Fast/deep recall split: done
 - Lightweight graph boosts: done
 - Long-term hygiene baseline: done
@@ -56,6 +57,7 @@ For future maintainers, the main extension map lives in:
 - Distilled memory tiers with `discard / diary / decision / knowledge`
 - `context_for_task` with wave planning, task-stage gating, and token budget gating
 - `context_for_task` now suppresses competing conflicting decisions in favor of one canonical decision when stable-wave policy drift is detected
+- `context_for_task` now opens recent history adaptively for history-focused or low-confidence tasks instead of expanding by default
 - `recall_fast` and `recall_deep`
 - Relation-aware rerank using lightweight graph edges
 - Governance tools for stale archive, conflict listing, conflict clustering, and memory consolidation

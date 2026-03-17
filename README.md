@@ -61,6 +61,7 @@ Implemented today:
 - per-wave budget profiles for task context recall
 - one-hop memory mesh expansion after stable hits
 - conflict-aware wave gating for competing decision memories
+- adaptive deep-wave triggers for history-focused tasks
 - fast recall and deep recall entry points
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation

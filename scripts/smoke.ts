@@ -164,6 +164,18 @@ async function main(): Promise<void> {
     assert.ok(context.gates.wavePlan.length >= 3);
     assert.ok(Boolean(context.gates.stopReason));
 
+    const historyContext = await timed("context_for_task_history", steps, async () =>
+      service.contextForTask({
+        projectRoot,
+        task: "Document the previous retrieval history and legacy branch notes",
+        currentFile: path.join(docsDir, "ARCHITECTURE.md"),
+        topK: 5
+      })
+    );
+    assert.equal(historyContext.gates.usedAdaptiveDeepWaveGate, true);
+    assert.ok(historyContext.gates.deepWaveTriggers.includes("history_hint"));
+    assert.equal(historyContext.gates.usedRecentWave, true);
+
     const recall = await timed("recall", steps, async () =>
       service.recall({
         projectRoot,
@@ -332,6 +344,8 @@ async function main(): Promise<void> {
         usedConflictGate: context.gates.usedConflictGate,
         conflictSubjects: context.gates.conflictSummary.subjects,
         usedMemoryMesh: context.gates.usedMemoryMesh,
+        historyWaveTriggered: historyContext.gates.usedAdaptiveDeepWaveGate,
+        historyWaveTriggers: historyContext.gates.deepWaveTriggers,
         confidenceStopReason: context.gates.confidenceStop.reason,
         recallHits: recall.length,
         fastRecallHits: fastRecall.length,

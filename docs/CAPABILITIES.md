@@ -12,6 +12,7 @@ This file tracks what is already live in the current project and what still belo
 - `context_for_task` with intent-first planning, confidence-aware stopping, per-wave budgets, task-stage, token-budget, and light-wave gating
 - one-hop memory mesh expansion on top of relation-aware graph edges
 - conflict-aware stable-wave gating that prefers one canonical decision when policy drift is detected
+- adaptive deep-wave planning that opens recent history only when the task or confidence signals justify it
 - `recallFast` and `recallDeep`
 - Write-time session distillation into `discard / diary / decision / knowledge`
 - Source hygiene with disable/enable, feedback, stale archiving, conflict detection, and consolidation
@@ -56,6 +57,7 @@ The current release path has direct coverage for:
 
 - `context_for_task` light-wave explain output
 - conflict-aware wave gating and canonical decision preference
+- adaptive deep-wave triggers and history-aware expansion
 - `recall_fast` and `recall_deep`
 - relation-aware recall explain output
 - stale archive

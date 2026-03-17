@@ -248,6 +248,8 @@ export class RecallService {
       omittedByTokenBudget: number;
       usedTokenBudgetGate: boolean;
       wavePlanType: "light-wave";
+      usedAdaptiveDeepWaveGate: boolean;
+      deepWaveTriggers: string[];
       usedRecentWave: boolean;
       usedFallbackWave: boolean;
       stopReason: string;
@@ -453,11 +455,19 @@ export class RecallService {
     }
 
     const recentWave = wavePlan[3];
+    const adaptiveDeepWave = determineAdaptiveDeepWave({
+      taskStage,
+      task: input.task,
+      query,
+      merged,
+      budget,
+      stableCount: stableResults.length,
+      knowledgeReserve: stagePolicy.knowledgeReserve,
+      stopDecision,
+      conflictGate
+    });
     if (!stopReason) {
-      const shouldUseRecentWave =
-        !recentWave.optional ||
-        merged.length < budget ||
-        stableResults.length < stagePolicy.knowledgeReserve;
+      const shouldUseRecentWave = adaptiveDeepWave.shouldUseRecentWave;
 
       if (shouldUseRecentWave) {
         const recentResults = await this.recall({
@@ -508,8 +518,16 @@ export class RecallService {
     }
 
     let fallbackUsed = false;
+    const fallbackTriggers = determineAdaptiveFallbackTriggers({
+      task: input.task,
+      query,
+      mergedCount: merged.length,
+      stableCount: stableResults.length,
+      stopDecision,
+      usedRecentWave: recentWaveUsed
+    });
 
-    if (merged.length === 0) {
+    if (fallbackTriggers.length > 0) {
       const fallbackWave = wavePlan[4];
       merged = await this.recall({
         projectRoot: input.projectRoot,
@@ -525,7 +543,7 @@ export class RecallService {
         used: true,
         resultCount: merged.length
       });
-      stopReason = "fallback_wave_used";
+      stopReason = fallbackTriggers[0] === "empty_context" ? "fallback_wave_used" : `adaptive_fallback:${fallbackTriggers[0]}`;
     } else {
       const fallbackWave = wavePlan[4];
       waveResults.push({
@@ -588,6 +606,8 @@ export class RecallService {
         omittedByTokenBudget: tokenBudgeted.omittedCount,
         usedTokenBudgetGate: tokenBudgeted.omittedCount > 0,
         wavePlanType: "light-wave",
+        usedAdaptiveDeepWaveGate: adaptiveDeepWave.triggers.length > 0,
+        deepWaveTriggers: adaptiveDeepWave.triggers,
         usedRecentWave: recentWaveUsed,
         usedFallbackWave: fallbackUsed,
         stopReason: stopReason || "token_budget_applied_after_light_wave",
@@ -1039,6 +1059,96 @@ function mentionsConflictSubject(chunk: ChunkRecord, subjects: string[]): boolea
 
   const blob = `${chunk.title ?? ""}\n${chunk.content}\n${chunk.tags.join(" ")}`.toLowerCase();
   return subjects.some((subject) => blob.includes(subject));
+}
+
+function determineAdaptiveDeepWave(input: {
+  taskStage: ContextTaskStage;
+  task: string;
+  query: string;
+  merged: ChunkRecord[];
+  budget: number;
+  stableCount: number;
+  knowledgeReserve: number;
+  stopDecision: {
+    finalScore: number;
+    threshold: number;
+  };
+  conflictGate: {
+    used: boolean;
+    canonicalPreferred: boolean;
+  };
+}): {
+  shouldUseRecentWave: boolean;
+  triggers: string[];
+} {
+  const triggers: string[] = [];
+
+  if (input.taskStage === "debug" || input.taskStage === "verify" || input.taskStage === "explore") {
+    triggers.push("required_for_task_stage");
+  }
+  if (input.merged.length < input.budget) {
+    triggers.push("budget_gap");
+  }
+  if (input.stableCount < input.knowledgeReserve) {
+    triggers.push("stable_gap");
+  }
+  if (containsHistoryHint(`${input.task}\n${input.query}`)) {
+    triggers.push("history_hint");
+  }
+  if (input.stopDecision.finalScore > 0 && input.stopDecision.finalScore < input.stopDecision.threshold) {
+    triggers.push("low_confidence");
+  }
+  if (input.conflictGate.used && !input.conflictGate.canonicalPreferred) {
+    triggers.push("unresolved_conflict");
+  }
+
+  return {
+    shouldUseRecentWave: triggers.length > 0,
+    triggers: dedupeStrings(triggers)
+  };
+}
+
+function determineAdaptiveFallbackTriggers(input: {
+  task: string;
+  query: string;
+  mergedCount: number;
+  stableCount: number;
+  stopDecision: {
+    finalScore: number;
+    threshold: number;
+  };
+  usedRecentWave: boolean;
+}): string[] {
+  const triggers: string[] = [];
+
+  if (input.mergedCount === 0) {
+    triggers.push("empty_context");
+  }
+  if (containsHistoryHint(`${input.task}\n${input.query}`) && !input.usedRecentWave && input.stableCount === 0) {
+    triggers.push("history_without_recent_hits");
+  }
+  if (input.mergedCount <= 1 && input.stopDecision.finalScore > 0 && input.stopDecision.finalScore < input.stopDecision.threshold * 0.65) {
+    triggers.push("very_low_confidence");
+  }
+
+  return dedupeStrings(triggers);
+}
+
+function containsHistoryHint(text: string): boolean {
+  const normalized = text.toLowerCase();
+  return [
+    "history",
+    "historical",
+    "legacy",
+    "previous",
+    "earlier",
+    "prior",
+    "before",
+    "以前",
+    "之前",
+    "历史",
+    "过往"
+  ].some((hint) => normalized.includes(hint));
 }
 
 function dedupeChunks(chunks: ChunkRecord[]): ChunkRecord[] {

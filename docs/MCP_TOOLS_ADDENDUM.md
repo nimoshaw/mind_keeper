@@ -65,6 +65,8 @@ Recent responses can include:
 - `stopReason`
 - `usedConflictGate`
 - `conflictSummary`
+- `usedAdaptiveDeepWaveGate`
+- `deepWaveTriggers`
 - `relationBoost`
 - `relationHits`
 

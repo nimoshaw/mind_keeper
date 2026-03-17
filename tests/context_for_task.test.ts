@@ -299,3 +299,57 @@ test("context_for_task uses conflict-aware wave gating to keep one canonical dec
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("context_for_task can adaptively open the recent-history wave for history-focused tasks", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-adaptive-deep-wave-project-"));
+  const docsDir = path.join(projectRoot, "docs");
+  await fs.mkdir(docsDir, { recursive: true });
+
+  const guideFile = path.join(docsDir, "GUIDE.md");
+  await fs.writeFile(
+    guideFile,
+    [
+      "# Retrieval Guide",
+      "",
+      "Document the current retrieval design."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const service = new MindKeeperService();
+
+  try {
+    await service.indexProject(projectRoot, { force: true });
+    await service.rememberDecision({
+      projectRoot,
+      title: "Current retrieval policy",
+      decision: "Use stable memory first and keep deep history behind an adaptive wave.",
+      rationale: "The IDE needs low-latency defaults.",
+      impact: "Only open diary and imported notes when history is explicitly requested.",
+      moduleName: "retrieval",
+      tags: ["retrieval", "policy"]
+    });
+    const historyDiary = await service.remember({
+      projectRoot,
+      sourceKind: "diary",
+      title: "Previous retrieval experiment log",
+      content: "Historical note: earlier retrieval experiments used diary-first expansion before we adopted adaptive deep waves.",
+      moduleName: "retrieval",
+      tags: ["history", "retrieval", "legacy"]
+    });
+
+    const result = await service.contextForTask({
+      projectRoot,
+      task: "Document the previous retrieval history and earlier experiments for the guide",
+      currentFile: guideFile,
+      topK: 5
+    });
+
+    assert.equal(result.gates.usedAdaptiveDeepWaveGate, true);
+    assert.ok(result.gates.deepWaveTriggers.includes("history_hint"));
+    assert.equal(result.gates.usedRecentWave, true);
+    assert.ok(result.results.some((item) => item.docId === historyDiary.docId));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
