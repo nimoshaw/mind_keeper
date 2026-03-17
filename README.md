@@ -56,6 +56,7 @@ Implemented today:
 - incremental indexing with manifests
 - write-time memory distillation
 - light-wave task context recall
+- intent subtype planning for bug fixes, migrations, API changes, docs, and architecture review
 - intent-first light-wave task context recall
 - confidence-aware wave stopping
 - per-wave budget profiles for task context recall

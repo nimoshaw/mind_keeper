@@ -71,6 +71,7 @@ test("context_for_task prioritizes decision memory and current file context", as
     assert.equal(result.gates.usedRelatedFileGate, true);
     assert.equal(result.gates.symbol, "remember");
     assert.equal(result.gates.taskStage, "debug");
+    assert.equal(result.gates.intentSubtype, "bug_fix");
     assert.equal(result.gates.usedTaskStageGate, true);
     assert.equal(result.gates.intentType, "debug");
     assert.equal(result.gates.intentAnchors.currentFile, "memory.ts");
@@ -144,6 +145,7 @@ test("context_for_task infers documentation stage and explains source budget", a
     assert.equal(result.gates.taskStage, "document");
     assert.equal(result.gates.usedTaskStageGate, true);
     assert.equal(result.gates.intentType, "document");
+    assert.equal(result.gates.intentSubtype, "architecture_review");
     assert.equal(result.gates.intentAnchors.currentFile, "ARCHITECTURE.md");
     assert.equal(result.gates.queryPlan.projectQueryOrder[0], "current_file");
     assert.equal(result.gates.waveBudgetProfile.profileName, "documentation-biased");
@@ -288,6 +290,7 @@ test("context_for_task uses conflict-aware wave gating to keep one canonical dec
 
     assert.equal(result.gates.usedConflictGate, true);
     assert.equal(result.gates.conflictSummary.canonicalPreferred, true);
+    assert.equal(result.gates.intentSubtype, "bug_fix");
     assert.ok(result.gates.conflictSummary.subjects.includes("sqlite"));
     assert.ok(result.gates.conflictSummary.keptDocIds.includes(canonical.docId));
     assert.ok(result.gates.conflictSummary.suppressedDocIds.includes(preferSqlite.docId));
@@ -346,9 +349,56 @@ test("context_for_task can adaptively open the recent-history wave for history-f
     });
 
     assert.equal(result.gates.usedAdaptiveDeepWaveGate, true);
+    assert.equal(result.gates.intentSubtype, "docs_update");
     assert.ok(result.gates.deepWaveTriggers.includes("history_hint"));
     assert.equal(result.gates.usedRecentWave, true);
     assert.ok(result.results.some((item) => item.docId === historyDiary.docId));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("context_for_task exposes migration intent subtype and migration-biased stable planning", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-migration-intent-project-"));
+  const srcDir = path.join(projectRoot, "src");
+  await fs.mkdir(srcDir, { recursive: true });
+
+  const storageFile = path.join(srcDir, "storage.ts");
+  await fs.writeFile(
+    storageFile,
+    [
+      "export function migrateManifestStore() {",
+      "  return 'sqlite';",
+      "}"
+    ].join("\n"),
+    "utf8"
+  );
+
+  const service = new MindKeeperService();
+
+  try {
+    await service.indexProject(projectRoot, { force: true });
+    await service.remember({
+      projectRoot,
+      sourceKind: "imported",
+      title: "Manifest migration guide",
+      content: "Migration guide: move manifest storage from flat files to sqlite and keep an adapter for rollback.",
+      moduleName: "storage",
+      tags: ["migration", "sqlite", "storage"]
+    });
+
+    const result = await service.contextForTask({
+      projectRoot,
+      task: "Migrate manifest storage from flat files to sqlite and update the adapter",
+      currentFile: storageFile,
+      currentSymbol: "migrateManifestStore",
+      topK: 5
+    });
+
+    assert.equal(result.gates.intentSubtype, "migration");
+    assert.equal(result.gates.waveBudgetProfile.intentSubtype, "migration");
+    assert.ok(result.gates.queryPlan.stableSourceKinds.includes("imported"));
+    assert.ok(result.gates.deepWaveTriggers.includes("required_for_intent_subtype"));
   } finally {
     await fs.rm(projectRoot, { recursive: true, force: true });
   }

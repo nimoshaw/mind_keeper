@@ -1,5 +1,15 @@
 export type MemorySourceKind = "manual" | "decision" | "diary" | "project" | "imported";
 export type ContextTaskStage = "debug" | "implement" | "verify" | "refactor" | "document" | "explore" | "general";
+export type TaskIntentSubtype =
+  | "bug_root_cause"
+  | "bug_fix"
+  | "api_change"
+  | "migration"
+  | "test_repair"
+  | "refactor_safety"
+  | "docs_update"
+  | "architecture_review"
+  | "general";
 export type SourceFeedbackSignal = "helpful" | "noisy";
 export type MemoryTier = "working" | "stable" | "project" | "cold";
 export type DistilledMemoryKind = "discard" | "diary" | "decision" | "knowledge";

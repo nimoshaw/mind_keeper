@@ -60,6 +60,7 @@ Recent responses can include:
 
 - `wavePlanType`
 - `wavePlan`
+- `intentSubtype`
 - `usedRecentWave`
 - `usedFallbackWave`
 - `stopReason`

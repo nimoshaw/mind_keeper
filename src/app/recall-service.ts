@@ -18,7 +18,15 @@ import { RerankerService } from "../reranker.js";
 import { detectLanguage as detectIndexedLanguage, inferSymbolName as inferIndexedSymbolName } from "../symbols.js";
 import { MindKeeperStorage } from "../storage.js";
 import { lexicalScore } from "../text.js";
-import type { ChunkRecord, ContextForTaskInput, ContextTaskStage, MemorySourceKind, RecallInput, RerankerProfile } from "../types.js";
+import type {
+  ChunkRecord,
+  ContextForTaskInput,
+  ContextTaskStage,
+  MemorySourceKind,
+  RecallInput,
+  RerankerProfile,
+  TaskIntentSubtype
+} from "../types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -199,6 +207,7 @@ export class RecallService {
       budget: number;
       budgetPolicy: string;
       intentType: ContextTaskStage;
+      intentSubtype: TaskIntentSubtype;
       intentAnchors: {
         currentFile: string | null;
         moduleName: string | null;
@@ -227,6 +236,7 @@ export class RecallService {
         recentBudget: number;
         fallbackBudget: number;
         profileName: "documentation-biased" | "exploration-biased" | "balanced";
+        intentSubtype: TaskIntentSubtype;
       };
       usedConflictGate: boolean;
       conflictSummary: {
@@ -289,19 +299,23 @@ export class RecallService {
     const branchName = input.branchName?.trim() || (await detectGitBranch(input.projectRoot)) || undefined;
     const relatedFiles = dedupeStrings([...(input.relatedFiles ?? []), ...diagnosticHints.files]);
     const taskStage = inferTaskStage(input);
+    const intentSubtype = inferTaskIntentSubtype(input, taskStage);
     const stagePolicy = resolveTaskStagePolicy(
       taskStage,
+      intentSubtype,
       budget,
       config.retrieval.taskKnowledgeReserve,
       config.retrieval.taskContextTokenBudget
     );
     const waveBudgetProfile = buildTaskWaveBudgetProfile({
       taskStage,
+      intentSubtype,
       budget
     });
     const relatedFileNames = dedupeStrings(relatedFiles.map((item) => path.basename(item)).filter(Boolean));
     const intentPlan = buildTaskIntentPlan({
       taskStage,
+      intentSubtype,
       anchors: {
         currentFile: currentFileName ?? null,
         moduleName: moduleName ?? null,
@@ -317,6 +331,7 @@ export class RecallService {
     });
     const wavePlan = buildTaskWavePlan({
       taskStage,
+      intentSubtype,
       budget,
       minScore
     });
@@ -329,6 +344,7 @@ export class RecallService {
     ];
     const query = buildTaskQuery(input, {
       intentType: intentPlan.intentType,
+      intentSubtype: intentPlan.intentSubtype,
       symbol,
       branchName,
       relatedFiles,
@@ -457,6 +473,7 @@ export class RecallService {
     const recentWave = wavePlan[3];
     const adaptiveDeepWave = determineAdaptiveDeepWave({
       taskStage,
+      intentSubtype,
       task: input.task,
       query,
       merged,
@@ -575,6 +592,7 @@ export class RecallService {
         usedDiagnosticsGate: Boolean(input.diagnostics?.trim()),
         usedRelatedFileGate: relatedFileNames.length > 0,
         intentType: intentPlan.intentType,
+        intentSubtype: intentPlan.intentSubtype,
         intentAnchors: intentPlan.anchors,
         queryPlan: intentPlan.queryPlan,
         waveBudgetProfile,
@@ -716,6 +734,7 @@ function buildTaskQuery(
   input: ContextForTaskInput,
   hints?: {
     intentType?: ContextTaskStage;
+    intentSubtype?: TaskIntentSubtype;
     symbol?: string;
     branchName?: string;
     relatedFiles?: string[];
@@ -727,6 +746,10 @@ function buildTaskQuery(
 
   if (hints?.intentType) {
     parts.push(`intent: ${hints.intentType}`);
+  }
+
+  if (hints?.intentSubtype && hints.intentSubtype !== "general") {
+    parts.push(`intent_subtype: ${hints.intentSubtype}`);
   }
 
   if (input.currentFile) {
@@ -1063,6 +1086,7 @@ function mentionsConflictSubject(chunk: ChunkRecord, subjects: string[]): boolea
 
 function determineAdaptiveDeepWave(input: {
   taskStage: ContextTaskStage;
+  intentSubtype: TaskIntentSubtype;
   task: string;
   query: string;
   merged: ChunkRecord[];
@@ -1085,6 +1109,13 @@ function determineAdaptiveDeepWave(input: {
 
   if (input.taskStage === "debug" || input.taskStage === "verify" || input.taskStage === "explore") {
     triggers.push("required_for_task_stage");
+  }
+  if (
+    input.intentSubtype === "bug_root_cause" ||
+    input.intentSubtype === "migration" ||
+    input.intentSubtype === "architecture_review"
+  ) {
+    triggers.push("required_for_intent_subtype");
   }
   if (input.merged.length < input.budget) {
     triggers.push("budget_gap");
@@ -1592,8 +1623,48 @@ function inferTaskStage(input: ContextForTaskInput): ContextTaskStage {
   return "general";
 }
 
+function inferTaskIntentSubtype(input: ContextForTaskInput, taskStage: ContextTaskStage): TaskIntentSubtype {
+  const haystack = [input.task, input.diagnostics ?? "", input.selectedText ?? ""].join("\n").toLowerCase();
+
+  if (/(migration|migrate|upgrade|downgrade|backfill|port|move from|switch from|rollout|deprecate)/i.test(haystack)) {
+    return "migration";
+  }
+
+  if (/(api|endpoint|contract|schema|interface|sdk|payload|request|response|graphql|rest)/i.test(haystack)) {
+    return "api_change";
+  }
+
+  if (/(test|spec|assert|fixture|snapshot|flaky|unit test|integration test|e2e)/i.test(haystack) && /(fix|repair|restore|stabilize|failing|failure|broken)/i.test(haystack)) {
+    return "test_repair";
+  }
+
+  if (taskStage === "document") {
+    if (/(architecture|design|policy|decision|system|adr|structure|topology)/i.test(haystack)) {
+      return "architecture_review";
+    }
+    return "docs_update";
+  }
+
+  if (taskStage === "refactor") {
+    return "refactor_safety";
+  }
+
+  if (taskStage === "debug") {
+    if (/(root cause|why|investigate|trace|reproduce|repro|isolate|understand|look into)/i.test(haystack)) {
+      return "bug_root_cause";
+    }
+    if (/(test|spec|assert|fixture|snapshot|flaky)/i.test(haystack)) {
+      return "test_repair";
+    }
+    return "bug_fix";
+  }
+
+  return "general";
+}
+
 function resolveTaskStagePolicy(
   taskStage: ContextTaskStage,
+  intentSubtype: TaskIntentSubtype,
   budget: number,
   baseKnowledgeReserve: number,
   baseTokenBudget: number
@@ -1638,6 +1709,43 @@ function resolveTaskStagePolicy(
       description = "Documentation stage: favor durable knowledge and decisions, then fill the rest with supporting project snippets.";
       break;
     case "general":
+      break;
+  }
+
+  switch (intentSubtype) {
+    case "bug_root_cause":
+      knowledgeReserve = Math.min(maxKnowledge, knowledgeReserve + 1);
+      tokenBudget = Math.round(tokenBudget * 1.08);
+      description = `${description} Root-cause analysis keeps extra room for diagnostic and historical memory.`;
+      break;
+    case "migration":
+      knowledgeReserve = Math.min(maxKnowledge, knowledgeReserve + 1);
+      tokenBudget = Math.round(tokenBudget * 1.05);
+      description = `${description} Migration tasks bias toward durable policy and imported guidance before widening project context.`;
+      break;
+    case "api_change":
+      knowledgeReserve = Math.min(maxKnowledge, knowledgeReserve + 1);
+      description = `${description} API changes preserve contract and decision memory so interface drift stays visible.`;
+      break;
+    case "test_repair":
+      tokenBudget = Math.round(tokenBudget * 1.04);
+      description = `${description} Test repair work keeps nearby implementation context warm while still surfacing prior failure notes.`;
+      break;
+    case "refactor_safety":
+      knowledgeReserve = Math.min(maxKnowledge, knowledgeReserve + 1);
+      tokenBudget = Math.round(tokenBudget * 0.97);
+      description = `${description} Refactor-safety mode keeps structural constraints and prior decisions visible while staying concise.`;
+      break;
+    case "docs_update":
+      tokenBudget = Math.round(tokenBudget * 0.94);
+      description = `${description} Docs updates stay concise and favor stable guidance over broad history.`;
+      break;
+    case "architecture_review":
+      knowledgeReserve = Math.min(maxKnowledge, knowledgeReserve + 1);
+      tokenBudget = Math.round(tokenBudget * 1.02);
+      description = `${description} Architecture review keeps more stable and historical decision context available.`;
+      break;
+    default:
       break;
   }
 

@@ -153,6 +153,7 @@ async function main(): Promise<void> {
     assert.ok(context.results.some((item) => item.sourceKind === "decision"));
     assert.equal(context.gates.wavePlanType, "light-wave");
     assert.equal(context.gates.intentType, "debug");
+    assert.equal(context.gates.intentSubtype, "bug_fix");
     assert.ok(context.gates.wavePlan.some((item) => item.name === "intent" && item.used));
     assert.ok(context.gates.queryPlan.projectQueryOrder.includes("current_file"));
     assert.ok(context.gates.waveBudgetProfile.localBudget >= context.gates.waveBudgetProfile.stableBudget);
@@ -173,6 +174,7 @@ async function main(): Promise<void> {
       })
     );
     assert.equal(historyContext.gates.usedAdaptiveDeepWaveGate, true);
+    assert.equal(historyContext.gates.intentSubtype, "docs_update");
     assert.ok(historyContext.gates.deepWaveTriggers.includes("history_hint"));
     assert.equal(historyContext.gates.usedRecentWave, true);
 
@@ -340,11 +342,13 @@ async function main(): Promise<void> {
         sessionDocId: summary.docId,
         contextHits: context.results.length,
         intentType: context.gates.intentType,
+        intentSubtype: context.gates.intentSubtype,
         waveBudgetProfile: context.gates.waveBudgetProfile.profileName,
         usedConflictGate: context.gates.usedConflictGate,
         conflictSubjects: context.gates.conflictSummary.subjects,
         usedMemoryMesh: context.gates.usedMemoryMesh,
         historyWaveTriggered: historyContext.gates.usedAdaptiveDeepWaveGate,
+        historyIntentSubtype: historyContext.gates.intentSubtype,
         historyWaveTriggers: historyContext.gates.deepWaveTriggers,
         confidenceStopReason: context.gates.confidenceStop.reason,
         recallHits: recall.length,

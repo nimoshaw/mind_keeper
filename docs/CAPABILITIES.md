@@ -10,6 +10,7 @@ This file tracks what is already live in the current project and what still belo
 - Parser-backed symbol extraction for TypeScript, JavaScript, Python, Go, Rust, and Java
 - Hybrid recall with vector, lexical, source-priority, branch, feedback, and relation-aware boosts
 - `context_for_task` with intent-first planning, confidence-aware stopping, per-wave budgets, task-stage, token-budget, and light-wave gating
+- intent subtypes for `bug_root_cause / bug_fix / api_change / migration / test_repair / refactor_safety / docs_update / architecture_review`
 - one-hop memory mesh expansion on top of relation-aware graph edges
 - conflict-aware stable-wave gating that prefers one canonical decision when policy drift is detected
 - adaptive deep-wave planning that opens recent history only when the task or confidence signals justify it

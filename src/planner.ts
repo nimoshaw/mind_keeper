@@ -1,4 +1,4 @@
-import type { ContextTaskStage, MemorySourceKind } from "./types.js";
+import type { ContextTaskStage, MemorySourceKind, TaskIntentSubtype } from "./types.js";
 
 export type RecallWaveName = "intent" | "stable_memory" | "local_project" | "recent_history" | "fallback";
 export type ProjectQueryFocus = "current_file" | "related_files" | "module" | "broad_project";
@@ -50,6 +50,7 @@ export interface TaskIntentAnchors {
 
 export interface TaskIntentPlan {
   intentType: ContextTaskStage;
+  intentSubtype: TaskIntentSubtype;
   anchors: TaskIntentAnchors;
   queryPlan: {
     stableSourceKinds: MemorySourceKind[];
@@ -69,10 +70,12 @@ export interface TaskWaveBudgetProfile {
   recentBudget: number;
   fallbackBudget: number;
   profileName: "documentation-biased" | "exploration-biased" | "balanced";
+  intentSubtype: TaskIntentSubtype;
 }
 
 export function buildTaskIntentPlan(input: {
   taskStage: ContextTaskStage;
+  intentSubtype: TaskIntentSubtype;
   anchors: TaskIntentAnchors;
 }): TaskIntentPlan {
   const projectQueryOrder: ProjectQueryFocus[] = [];
@@ -86,7 +89,7 @@ export function buildTaskIntentPlan(input: {
     pushFocus("current_file");
   }
 
-  if (input.taskStage === "explore" && input.anchors.moduleName) {
+  if ((input.taskStage === "explore" || input.intentSubtype === "architecture_review") && input.anchors.moduleName) {
     pushFocus("module");
   }
 
@@ -94,20 +97,46 @@ export function buildTaskIntentPlan(input: {
     pushFocus("related_files");
   }
 
-  if (input.taskStage !== "explore" && input.anchors.moduleName) {
+  if (input.intentSubtype === "migration" || input.intentSubtype === "api_change") {
+    pushFocus("related_files");
+    if (input.anchors.moduleName) {
+      pushFocus("module");
+    }
+  }
+
+  if (input.intentSubtype === "architecture_review") {
+    pushFocus("module");
+    pushFocus("broad_project");
+  }
+
+  if (input.taskStage !== "explore" && input.intentSubtype !== "architecture_review" && input.anchors.moduleName) {
     pushFocus("module");
   }
 
   pushFocus("broad_project");
 
+  const stableSourceKinds: MemorySourceKind[] = ["manual", "decision"];
+  const localSourceKinds: MemorySourceKind[] = ["project"];
+  const recentSourceKinds: MemorySourceKind[] = ["diary", "imported"];
+  const fallbackSourceKinds: MemorySourceKind[] = ["manual", "decision", "diary", "project", "imported"];
+
+  if (input.intentSubtype === "migration") {
+    stableSourceKinds.push("imported");
+  } else if (input.intentSubtype === "architecture_review") {
+    recentSourceKinds.unshift("imported");
+  } else if (input.intentSubtype === "bug_root_cause" || input.intentSubtype === "test_repair") {
+    recentSourceKinds.unshift("diary");
+  }
+
   return {
     intentType: input.taskStage,
+    intentSubtype: input.intentSubtype,
     anchors: input.anchors,
     queryPlan: {
-      stableSourceKinds: ["manual", "decision"],
-      localSourceKinds: ["project"],
-      recentSourceKinds: ["diary", "imported"],
-      fallbackSourceKinds: ["manual", "decision", "diary", "project", "imported"],
+      stableSourceKinds: dedupeKinds(stableSourceKinds),
+      localSourceKinds: dedupeKinds(localSourceKinds),
+      recentSourceKinds: dedupeKinds(recentSourceKinds),
+      fallbackSourceKinds: dedupeKinds(fallbackSourceKinds),
       projectQueryOrder,
       symbolBias: input.anchors.symbol
         ? "exact"
@@ -121,14 +150,22 @@ export function buildTaskIntentPlan(input: {
 
 export function buildTaskWavePlan(input: {
   taskStage: ContextTaskStage;
+  intentSubtype: TaskIntentSubtype;
   budget: number;
   minScore: number;
 }): RecallWaveDefinition[] {
   const budgetProfile = buildTaskWaveBudgetProfile({
     taskStage: input.taskStage,
+    intentSubtype: input.intentSubtype,
     budget: input.budget
   });
-  const recentOptional = input.taskStage !== "debug" && input.taskStage !== "verify" && input.taskStage !== "explore";
+  const recentOptional =
+    input.taskStage !== "debug" &&
+    input.taskStage !== "verify" &&
+    input.taskStage !== "explore" &&
+    input.intentSubtype !== "bug_root_cause" &&
+    input.intentSubtype !== "migration" &&
+    input.intentSubtype !== "architecture_review";
 
   return [
     {
@@ -178,6 +215,7 @@ export function buildTaskWavePlan(input: {
 
 export function buildTaskWaveBudgetProfile(input: {
   taskStage: ContextTaskStage;
+  intentSubtype: TaskIntentSubtype;
   budget: number;
 }): TaskWaveBudgetProfile {
   const overallBudget = Math.max(1, input.budget);
@@ -198,14 +236,57 @@ export function buildTaskWaveBudgetProfile(input: {
     profileName = "exploration-biased";
   }
 
+  switch (input.intentSubtype) {
+    case "bug_root_cause":
+      stableBudget = Math.min(overallBudget, Math.max(stableBudget, Math.ceil(overallBudget * 0.6)));
+      localBudget = Math.min(overallBudget, Math.max(localBudget, Math.ceil(overallBudget * 0.95)));
+      recentBudget = Math.min(overallBudget, Math.max(recentBudget, overallBudget >= 4 ? 2 : 1));
+      break;
+    case "test_repair":
+      localBudget = Math.min(overallBudget, Math.max(localBudget, Math.ceil(overallBudget * 0.95)));
+      recentBudget = Math.min(overallBudget, Math.max(recentBudget, 1));
+      break;
+    case "migration":
+      stableBudget = Math.min(overallBudget, Math.max(stableBudget, Math.ceil(overallBudget * 0.7)));
+      localBudget = Math.min(overallBudget, Math.max(2, Math.ceil(overallBudget * 0.75)));
+      recentBudget = Math.min(overallBudget, Math.max(recentBudget, overallBudget >= 4 ? 2 : 1));
+      break;
+    case "api_change":
+      stableBudget = Math.min(overallBudget, Math.max(stableBudget, Math.ceil(overallBudget * 0.6)));
+      localBudget = Math.min(overallBudget, Math.max(localBudget, Math.ceil(overallBudget * 0.9)));
+      break;
+    case "refactor_safety":
+      stableBudget = Math.min(overallBudget, Math.max(stableBudget, Math.ceil(overallBudget * 0.65)));
+      localBudget = Math.min(overallBudget, Math.max(2, Math.ceil(overallBudget * 0.8)));
+      break;
+    case "architecture_review":
+      stableBudget = Math.min(overallBudget, Math.max(stableBudget, Math.ceil(overallBudget * 0.75)));
+      localBudget = Math.min(overallBudget, Math.max(1, Math.ceil(overallBudget * 0.55)));
+      recentBudget = Math.min(overallBudget, Math.max(recentBudget, 1));
+      profileName = "documentation-biased";
+      break;
+    case "docs_update":
+      stableBudget = Math.min(overallBudget, Math.max(stableBudget, Math.ceil(overallBudget * 0.75)));
+      localBudget = Math.min(overallBudget, Math.max(1, Math.ceil(overallBudget * 0.5)));
+      profileName = "documentation-biased";
+      break;
+    default:
+      break;
+  }
+
   return {
     overallBudget,
     stableBudget,
     localBudget,
     recentBudget,
     fallbackBudget: overallBudget,
-    profileName
+    profileName,
+    intentSubtype: input.intentSubtype
   };
+}
+
+function dedupeKinds(values: MemorySourceKind[]): MemorySourceKind[] {
+  return Array.from(new Set(values));
 }
 
 export function evaluateTaskWaveStop(input: {
