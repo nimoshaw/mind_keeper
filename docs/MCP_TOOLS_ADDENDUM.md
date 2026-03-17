@@ -21,6 +21,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
   Turns a conflict cluster into a ready-to-review canonical decision candidate, including a suggested title, tags, and the exact `docIds` to feed into consolidation.
 - `plan_conflict_resolutions`
   Returns executable templates for the next step, including a `consolidate_memories` payload and a `remember_decision` draft.
+- `execute_conflict_resolution_plan`
+  Executes the reviewed plan by writing one canonical decision and optionally disabling the superseded conflicting entries.
 - `suggest_consolidations`
   Scans related memories and proposes which ones look similar enough to merge before you run a real consolidation.
 - `consolidate_memories`
@@ -36,8 +38,9 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 6. Use `list_conflict_clusters` to review the higher-level drift theme behind those pairs.
 7. Use `suggest_conflict_resolutions` when a conflict cluster should collapse into one canonical decision.
 8. Use `plan_conflict_resolutions` when you want a ready-to-run template for the actual resolution step.
-9. Use `suggest_consolidations` to find merge candidates before touching stored memories.
-10. Use `consolidate_memories` once you agree with one of the suggestions.
+9. Use `execute_conflict_resolution_plan` after review when you are ready to publish the canonical decision and optionally disable the old ones.
+10. Use `suggest_consolidations` to find merge candidates before touching stored memories.
+11. Use `consolidate_memories` once you agree with one of the suggestions.
 
 ## Explain Fields You Now See
 

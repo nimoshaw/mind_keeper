@@ -298,6 +298,70 @@ export class HygieneService {
     });
   }
 
+  async executeConflictResolutionPlan(input: {
+    projectRoot: string;
+    docIds: string[];
+    title: string;
+    decision: string;
+    rationale?: string;
+    impact?: string;
+    moduleName?: string;
+    tags?: string[];
+    disableInputs?: boolean;
+  }): Promise<{
+    persisted: boolean;
+    docId: string | null;
+    chunkCount: number;
+    path: string | null;
+    sourceCount: number;
+    disabledInputs: number;
+  }> {
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const selected = storage.listSources().filter((item) => input.docIds.includes(item.docId));
+      if (selected.length === 0) {
+        return {
+          persisted: false,
+          docId: null,
+          chunkCount: 0,
+          path: null,
+          sourceCount: 0,
+          disabledInputs: 0
+        };
+      }
+
+      const result = await this.rememberers.rememberDecision({
+        projectRoot: input.projectRoot,
+        title: input.title,
+        decision: input.decision,
+        rationale: input.rationale,
+        impact: input.impact ?? `Canonical resolution created from ${selected.length} conflicting memories.`,
+        moduleName: input.moduleName,
+        tags: Array.from(new Set([...(input.tags ?? []), "conflict-resolution", "canonical"]))
+      });
+
+      let disabledInputs = 0;
+      if (input.disableInputs) {
+        for (const item of selected) {
+          storage.disableSource(item.docId, `Resolved into canonical decision ${result.docId}.`);
+          disabledInputs += 1;
+        }
+      }
+
+      return {
+        persisted: true,
+        docId: result.docId,
+        chunkCount: result.chunkCount,
+        path: result.path,
+        sourceCount: selected.length,
+        disabledInputs
+      };
+    } finally {
+      storage.close();
+    }
+  }
+
   async consolidateMemories(input: {
     projectRoot: string;
     docIds: string[];

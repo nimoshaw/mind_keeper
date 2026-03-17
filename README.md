@@ -62,6 +62,7 @@ Implemented today:
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
 - conflict-resolution plans with ready-to-run consolidation templates
+- canonical decision execution from reviewed conflict plans
 - consolidation suggestions before manual merge
 - benchmark, smoke, and release-check flows
 
@@ -156,6 +157,7 @@ Development-time MCP command:
 - `list_conflict_clusters`
 - `suggest_conflict_resolutions`
 - `plan_conflict_resolutions`
+- `execute_conflict_resolution_plan`
 - `suggest_consolidations`
 - `consolidate_memories`
 

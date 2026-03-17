@@ -630,6 +630,43 @@ server.tool(
 );
 
 server.tool(
+  "execute_conflict_resolution_plan",
+  "Persist one canonical decision from a reviewed conflict plan and optionally disable the superseded inputs.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    doc_ids: z.array(z.string()).min(1).describe("The conflicting decision doc ids covered by this plan."),
+    title: z.string().min(1).describe("Canonical decision title."),
+    decision: z.string().min(1).describe("Canonical decision statement."),
+    rationale: z.string().optional().describe("Optional rationale explaining why this canonical decision wins."),
+    impact: z.string().optional().describe("Optional impact or follow-up note."),
+    module_name: z.string().optional().describe("Optional module or subsystem name."),
+    tags: z.array(z.string()).optional().describe("Optional tags to apply to the new canonical decision."),
+    disable_inputs: z.boolean().optional().describe("Disable the superseded decision memories after creating the canonical entry.")
+  },
+  async ({ project_root, doc_ids, title, decision, rationale, impact, module_name, tags, disable_inputs }) => {
+    const result = await service.executeConflictResolutionPlan({
+      projectRoot: project_root,
+      docIds: doc_ids,
+      title,
+      decision,
+      rationale,
+      impact,
+      moduleName: module_name,
+      tags,
+      disableInputs: disable_inputs
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "suggest_consolidations",
   "Suggest groups of related memories that look similar enough to consolidate into one stable note.",
   {

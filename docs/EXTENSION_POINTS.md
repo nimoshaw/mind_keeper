@@ -90,6 +90,7 @@ What to add:
 - deeper conflict clustering or semantic contradiction analysis
 - richer conflict-to-resolution suggestion ranking
 - more opinionated conflict-resolution plan generation
+- safer auto-execution policies for canonical decision publishing
 - stronger consolidation suggestion ranking
 
 Keep in mind:

@@ -206,6 +206,65 @@ test("planConflictResolutions returns executable templates for consolidation and
   }
 });
 
+test("executeConflictResolutionPlan writes a canonical decision and can disable superseded inputs", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflict-execute-"));
+  const service = new MindKeeperService();
+
+  try {
+    const first = await service.rememberDecision({
+      projectRoot,
+      title: "Prefer hash-local embeddings for local work",
+      decision: "Prefer hash-local for local development and fast recall experiments.",
+      moduleName: "retrieval",
+      tags: ["embedding", "local"]
+    });
+    const second = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use hash-local embeddings",
+      decision: "Do not use hash-local in this workflow because the policy changed.",
+      moduleName: "retrieval",
+      tags: ["embedding", "policy"]
+    });
+
+    const plans = await service.planConflictResolutions({
+      projectRoot,
+      topK: 5,
+      minScore: 0.6
+    });
+    const plan = plans[0];
+    assert.ok(plan);
+
+    const executed = await service.executeConflictResolutionPlan({
+      projectRoot,
+      docIds: plan.consolidateInput.docIds,
+      title: plan.rememberDecisionDraft.title,
+      decision: plan.rememberDecisionDraft.decision,
+      rationale: plan.rememberDecisionDraft.rationale,
+      impact: plan.rememberDecisionDraft.impact,
+      moduleName: plan.rememberDecisionDraft.moduleName,
+      tags: plan.rememberDecisionDraft.tags,
+      disableInputs: true
+    });
+
+    assert.equal(executed.persisted, true);
+    assert.ok(executed.docId);
+    assert.equal(executed.disabledInputs, 2);
+
+    const recallResults = await service.recall({
+      projectRoot,
+      query: "canonical hash local decision conflict resolution",
+      topK: 8,
+      minScore: 0
+    });
+    assert.ok(recallResults.some((item) => item.docId === executed.docId));
+
+    const listed = await service.listSources(projectRoot);
+    assert.equal(listed.filter((item) => [first.docId, second.docId].includes(item.docId) && item.isDisabled).length, 2);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("consolidateMemories merges related notes into stable knowledge and can disable inputs", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-consolidate-"));
   const service = new MindKeeperService();
