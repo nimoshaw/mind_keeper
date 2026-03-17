@@ -120,3 +120,51 @@ test("consolidateMemories merges related notes into stable knowledge and can dis
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("suggestConsolidations finds related notes before a manual consolidation step", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-suggest-consolidation-"));
+  const service = new MindKeeperService();
+
+  try {
+    const one = await service.remember({
+      projectRoot,
+      sourceKind: "manual",
+      title: "Planner early stop rule",
+      content: "Light wave planner should stop early when stable memory and current file context are already enough.",
+      moduleName: "retrieval",
+      tags: ["planner", "wave"]
+    });
+    const two = await service.remember({
+      projectRoot,
+      sourceKind: "manual",
+      title: "Planner early stop guidance",
+      content: "Context assembly should stop after stable memory plus local project context when the budget is already satisfied.",
+      moduleName: "retrieval",
+      tags: ["planner", "context"]
+    });
+    await service.remember({
+      projectRoot,
+      sourceKind: "manual",
+      title: "Unrelated benchmark note",
+      content: "Java parser benchmark numbers improved and should be tracked separately from retrieval planner rules.",
+      moduleName: "quality",
+      tags: ["benchmark"]
+    });
+
+    const suggestions = await service.suggestConsolidations({
+      projectRoot,
+      topK: 5,
+      minScore: 0.35,
+      sourceKinds: ["manual"]
+    });
+
+    assert.ok(suggestions.length >= 1);
+    const top = suggestions[0];
+    assert.ok(top.docIds.includes(one.docId));
+    assert.ok(top.docIds.includes(two.docId));
+    assert.equal(top.suggestedKind, "knowledge");
+    assert.ok(top.score >= 0.35);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});

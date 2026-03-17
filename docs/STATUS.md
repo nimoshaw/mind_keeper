@@ -12,6 +12,7 @@ This file is the clean status snapshot for the current build.
 - Lightweight graph boosts: done
 - Long-term hygiene baseline: done
 - Productization docs and release checks: done
+- Suggestion-driven consolidation scanning: done
 
 ## Quick Status Command
 

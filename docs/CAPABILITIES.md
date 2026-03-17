@@ -13,6 +13,7 @@ This file tracks what is already live in the current project and what still belo
 - `recallFast` and `recallDeep`
 - Write-time session distillation into `discard / diary / decision / knowledge`
 - Source hygiene with disable/enable, feedback, stale archiving, conflict detection, and consolidation
+- Consolidation suggestion scanning for related memories
 - Benchmark, smoke, and regression coverage
 
 ## Product Shape Today
@@ -28,7 +29,6 @@ This file tracks what is already live in the current project and what still belo
 
 - Parser-backed adapters for more languages such as C# or Kotlin
 - More sophisticated conflict clustering beyond pairwise heuristics
-- Automatic consolidation suggestions instead of manual-only consolidation
 - Stronger relation-aware planning between decisions and related symbols/files
 - Heavier cross-encoder rerank strategies when latency budget allows
 - Richer IDE UI affordances for wave and relation explain output

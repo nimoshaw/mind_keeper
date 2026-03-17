@@ -116,6 +116,16 @@ export class MindKeeperService {
     return this.hygieneService.listConflicts(input);
   }
 
+  async suggestConsolidations(input: {
+    projectRoot: string;
+    topK?: number;
+    minScore?: number;
+    sourceKinds?: Array<"manual" | "decision" | "diary" | "imported">;
+    includeDisabled?: boolean;
+  }) {
+    return this.hygieneService.suggestConsolidations(input);
+  }
+
   async consolidateMemories(input: {
     projectRoot: string;
     docIds: string[];

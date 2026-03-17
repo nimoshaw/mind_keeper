@@ -88,7 +88,7 @@ What to add:
 
 - new archive policies
 - better conflict clustering
-- consolidation suggestions
+- stronger consolidation suggestion ranking
 
 Keep in mind:
 

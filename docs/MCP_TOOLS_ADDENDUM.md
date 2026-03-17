@@ -15,6 +15,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
   Moves old diary or imported memories into the `cold` tier instead of leaving them in hot working recall.
 - `list_conflicts`
   Surfaces likely conflicting decision memories so teams can reconcile them before they pollute retrieval.
+- `suggest_consolidations`
+  Scans related memories and proposes which ones look similar enough to merge before you run a real consolidation.
 - `consolidate_memories`
   Merges several related memories into one stable `knowledge` or `decision` memory. It can also disable the inputs afterwards.
 
@@ -24,7 +26,9 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 2. Use `recall_fast` when you want direct lookup without broad historical expansion.
 3. Use `recall_deep` when the question is explicitly historical.
 4. Periodically run `archive_stale_memories` to cool old diary/imported notes.
-5. Use `list_conflicts` and `consolidate_memories` during cleanup passes.
+5. Use `list_conflicts` to spot decision drift.
+6. Use `suggest_consolidations` to find merge candidates before touching stored memories.
+7. Use `consolidate_memories` once you agree with one of the suggestions.
 
 ## Explain Fields You Now See
 

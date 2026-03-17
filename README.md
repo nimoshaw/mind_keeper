@@ -59,6 +59,7 @@ Implemented today:
 - fast recall and deep recall entry points
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation
+- consolidation suggestions before manual merge
 - benchmark, smoke, and release-check flows
 
 Parser-backed symbol extraction currently covers:
@@ -149,6 +150,7 @@ Development-time MCP command:
 - `rate_source`
 - `archive_stale_memories`
 - `list_conflicts`
+- `suggest_consolidations`
 - `consolidate_memories`
 
 Detailed usage examples live in [docs/MCP_TOOLS_ADDENDUM.md](/D:/projects/mind_keeper/docs/MCP_TOOLS_ADDENDUM.md).

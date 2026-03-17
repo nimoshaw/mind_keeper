@@ -553,6 +553,35 @@ server.tool(
 );
 
 server.tool(
+  "suggest_consolidations",
+  "Suggest groups of related memories that look similar enough to consolidate into one stable note.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    top_k: z.number().int().positive().max(50).optional().describe("Maximum number of suggestions to return."),
+    min_score: z.number().min(0).max(1).optional().describe("Only return suggestions at or above this score."),
+    source_kinds: z.array(z.enum(["manual", "decision", "diary", "imported"])).optional().describe("Optional memory source kinds to consider."),
+    include_disabled: z.boolean().optional().describe("Include currently disabled memories in the suggestion scan.")
+  },
+  async ({ project_root, top_k, min_score, source_kinds, include_disabled }) => {
+    const result = await service.suggestConsolidations({
+      projectRoot: project_root,
+      topK: top_k,
+      minScore: min_score,
+      sourceKinds: source_kinds,
+      includeDisabled: include_disabled
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "consolidate_memories",
   "Merge several related memories into one stable decision or knowledge note, optionally disabling the inputs afterwards.",
   {

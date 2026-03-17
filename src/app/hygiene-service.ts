@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { ensureProjectScaffold } from "../project.js";
-import { MindKeeperStorage } from "../storage.js";
-import type { RememberDecisionInput, RememberInput } from "../types.js";
+import { MindKeeperStorage, type MemorySourceRecord } from "../storage.js";
+import type { MemorySourceKind, RememberDecisionInput, RememberInput } from "../types.js";
 
 type RememberResult = { docId: string; chunkCount: number; path: string };
 
@@ -12,6 +12,69 @@ type HygieneRememberers = {
 
 export class HygieneService {
   constructor(private readonly rememberers: HygieneRememberers) {}
+
+  async suggestConsolidations(input: {
+    projectRoot: string;
+    topK?: number;
+    minScore?: number;
+    sourceKinds?: Array<Exclude<MemorySourceKind, "project">>;
+    includeDisabled?: boolean;
+  }): Promise<Array<{
+    docIds: string[];
+    titles: string[];
+    suggestedTitle: string;
+    suggestedKind: "knowledge" | "decision";
+    score: number;
+    reasons: string[];
+  }>> {
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const allowedKinds = input.sourceKinds?.length
+        ? input.sourceKinds
+        : ["manual", "decision", "diary", "imported"];
+      const candidates = storage
+        .listSources()
+        .filter((item) => allowedKinds.includes(item.sourceKind as Exclude<MemorySourceKind, "project">))
+        .filter((item) => input.includeDisabled ? true : !item.isDisabled);
+
+      if (candidates.length < 2) {
+        return [];
+      }
+
+      const contents = new Map<string, string>();
+      await Promise.all(candidates.map(async (item) => {
+        contents.set(item.docId, await safeReadText(item.path));
+      }));
+
+      const pairSuggestions: PairSuggestion[] = [];
+      const minScore = input.minScore ?? 0.44;
+      for (let i = 0; i < candidates.length; i += 1) {
+        for (let j = i + 1; j < candidates.length; j += 1) {
+          const suggestion = scoreConsolidationPair(candidates[i], candidates[j], contents);
+          if (suggestion.score >= minScore) {
+            pairSuggestions.push(suggestion);
+          }
+        }
+      }
+
+      const grouped = buildConsolidationGroups(pairSuggestions, candidates)
+        .sort((left, right) => right.score - left.score)
+        .slice(0, input.topK ?? 8)
+        .map((group) => ({
+          docIds: group.docIds,
+          titles: group.titles,
+          suggestedTitle: group.suggestedTitle,
+          suggestedKind: group.suggestedKind,
+          score: round4(group.score),
+          reasons: group.reasons.slice(0, 4)
+        }));
+
+      return grouped;
+    } finally {
+      storage.close();
+    }
+  }
 
   async archiveStaleMemories(input: {
     projectRoot: string;
@@ -240,6 +303,13 @@ type DecisionClaim = {
   confidence: number;
 };
 
+type PairSuggestion = {
+  leftDocId: string;
+  rightDocId: string;
+  score: number;
+  reasons: string[];
+};
+
 function extractDecisionClaims(text: string): DecisionClaim[] {
   const normalized = text.toLowerCase();
   const patterns: Array<{ regex: RegExp; polarity: "positive" | "negative"; confidence: number }> = [
@@ -311,4 +381,224 @@ async function safeReadText(filePath: string): Promise<string> {
 
 function round4(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+function scoreConsolidationPair(
+  left: MemorySourceRecord,
+  right: MemorySourceRecord,
+  contents: Map<string, string>
+): PairSuggestion {
+  const leftTitleTokens = tokenizeForConsolidation(left.title ?? left.docId);
+  const rightTitleTokens = tokenizeForConsolidation(right.title ?? right.docId);
+  const leftBodyTokens = tokenizeForConsolidation(contents.get(left.docId) ?? "");
+  const rightBodyTokens = tokenizeForConsolidation(contents.get(right.docId) ?? "");
+
+  const titleOverlap = jaccard(leftTitleTokens, rightTitleTokens);
+  const bodyOverlap = jaccard(leftBodyTokens, rightBodyTokens);
+  const sharedParent = parentBucket(left.path) === parentBucket(right.path);
+  const sameKind = left.sourceKind === right.sourceKind;
+  const sameTier = (left.memoryTier ?? null) === (right.memoryTier ?? null);
+  const updatedDeltaDays = Math.abs(left.updatedAt - right.updatedAt) / (1000 * 60 * 60 * 24);
+  const recencyCloseness = Math.max(0, 1 - updatedDeltaDays / 90);
+
+  const score =
+    titleOverlap * 0.36 +
+    bodyOverlap * 0.34 +
+    (sharedParent ? 0.12 : 0) +
+    (sameKind ? 0.08 : 0) +
+    (sameTier ? 0.04 : 0) +
+    recencyCloseness * 0.06;
+
+  const reasons: string[] = [];
+  if (titleOverlap >= 0.2) {
+    reasons.push("titles overlap around the same topic");
+  }
+  if (bodyOverlap >= 0.18) {
+    reasons.push("content overlap suggests duplicated or adjacent guidance");
+  }
+  if (sharedParent) {
+    reasons.push("both memories live in the same project area");
+  }
+  if (sameKind) {
+    reasons.push(`both memories are ${left.sourceKind} notes`);
+  }
+  if (sameTier) {
+    reasons.push(`both memories currently sit in the ${left.memoryTier ?? "unknown"} tier`);
+  }
+
+  return {
+    leftDocId: left.docId,
+    rightDocId: right.docId,
+    score,
+    reasons
+  };
+}
+
+function buildConsolidationGroups(
+  pairs: PairSuggestion[],
+  candidates: MemorySourceRecord[]
+): Array<{
+  docIds: string[];
+  titles: string[];
+  suggestedTitle: string;
+  suggestedKind: "knowledge" | "decision";
+  score: number;
+  reasons: string[];
+}> {
+  if (pairs.length === 0) {
+    return [];
+  }
+
+  const neighborMap = new Map<string, Set<string>>();
+  for (const pair of pairs) {
+    addNeighbor(neighborMap, pair.leftDocId, pair.rightDocId);
+    addNeighbor(neighborMap, pair.rightDocId, pair.leftDocId);
+  }
+
+  const candidateMap = new Map(candidates.map((item) => [item.docId, item]));
+  const visited = new Set<string>();
+  const groups: Array<{
+    docIds: string[];
+    titles: string[];
+    suggestedTitle: string;
+    suggestedKind: "knowledge" | "decision";
+    score: number;
+    reasons: string[];
+  }> = [];
+
+  for (const docId of neighborMap.keys()) {
+    if (visited.has(docId)) {
+      continue;
+    }
+    const component = collectComponent(docId, neighborMap, visited);
+    if (component.length < 2) {
+      continue;
+    }
+
+    const componentPairs = pairs.filter((pair) => component.includes(pair.leftDocId) && component.includes(pair.rightDocId));
+    const docs = component
+      .map((id) => candidateMap.get(id))
+      .filter((item): item is MemorySourceRecord => Boolean(item))
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+
+    if (docs.length < 2) {
+      continue;
+    }
+
+    groups.push({
+      docIds: docs.map((item) => item.docId),
+      titles: docs.map((item) => item.title ?? item.docId),
+      suggestedTitle: suggestConsolidationTitle(docs),
+      suggestedKind: docs.some((item) => item.sourceKind === "decision") ? "decision" : "knowledge",
+      score: componentPairs.reduce((sum, pair) => sum + pair.score, 0) / componentPairs.length,
+      reasons: dedupeReasons(componentPairs.flatMap((pair) => pair.reasons))
+    });
+  }
+
+  return groups;
+}
+
+function addNeighbor(map: Map<string, Set<string>>, key: string, neighbor: string): void {
+  const current = map.get(key) ?? new Set<string>();
+  current.add(neighbor);
+  map.set(key, current);
+}
+
+function collectComponent(
+  start: string,
+  neighbors: Map<string, Set<string>>,
+  visited: Set<string>
+): string[] {
+  const queue = [start];
+  const component: string[] = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || visited.has(current)) {
+      continue;
+    }
+    visited.add(current);
+    component.push(current);
+
+    for (const next of neighbors.get(current) ?? []) {
+      if (!visited.has(next)) {
+        queue.push(next);
+      }
+    }
+  }
+
+  return component;
+}
+
+function suggestConsolidationTitle(docs: MemorySourceRecord[]): string {
+  const commonTokens = intersectTokenSets(
+    docs.map((doc) => new Set(tokenizeForConsolidation(doc.title ?? doc.docId)))
+  ).filter((token) => token.length >= 4);
+
+  if (commonTokens.length > 0) {
+    return `Consolidated ${commonTokens.slice(0, 3).join(" ")} guidance`;
+  }
+
+  const parent = parentBucket(docs[0].path);
+  if (parent && parent !== ".") {
+    return `Consolidated ${parent.replace(/[\\/]/g, " ")} guidance`;
+  }
+
+  return "Consolidated related memories";
+}
+
+function dedupeReasons(reasons: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const reason of reasons) {
+    if (!reason || seen.has(reason)) {
+      continue;
+    }
+    seen.add(reason);
+    output.push(reason);
+  }
+  return output;
+}
+
+function parentBucket(filePath: string): string {
+  return filePath.split(/[\\/]/).slice(-2, -1)[0] ?? ".";
+}
+
+function tokenizeForConsolidation(input: string): string[] {
+  return input
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}_-]+/u)
+    .filter((token) => token.length >= 3)
+    .slice(0, 64);
+}
+
+function jaccard(left: string[], right: string[]): number {
+  if (left.length === 0 || right.length === 0) {
+    return 0;
+  }
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+  let intersection = 0;
+  for (const token of leftSet) {
+    if (rightSet.has(token)) {
+      intersection += 1;
+    }
+  }
+  const union = new Set([...leftSet, ...rightSet]).size;
+  return union === 0 ? 0 : intersection / union;
+}
+
+function intersectTokenSets(sets: Array<Set<string>>): string[] {
+  if (sets.length === 0) {
+    return [];
+  }
+
+  const [head, ...rest] = sets;
+  const output: string[] = [];
+  for (const token of head) {
+    if (rest.every((set) => set.has(token))) {
+      output.push(token);
+    }
+  }
+  return output;
 }

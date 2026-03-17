@@ -12,6 +12,7 @@ Before calling the current build ready, also confirm:
 - governance tools behave safely:
   - `archive_stale_memories`
   - `list_conflicts`
+  - `suggest_consolidations`
   - `consolidate_memories`
 - `npm run verify` exercises those paths end to end without manual setup
 
