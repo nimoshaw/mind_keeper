@@ -173,6 +173,15 @@ export class MindKeeperService {
     return this.hygieneService.verifyConflictResolutionExecution(input);
   }
 
+  async suggestConflictResolutionFollowup(input: {
+    projectRoot: string;
+    canonicalDocId: string;
+    supersededDocIds?: string[];
+    archiveAfterDays?: number;
+  }) {
+    return this.hygieneService.suggestConflictResolutionFollowup(input);
+  }
+
   async suggestConsolidations(input: {
     projectRoot: string;
     topK?: number;

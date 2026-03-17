@@ -471,6 +471,89 @@ export class HygieneService {
     }
   }
 
+  async suggestConflictResolutionFollowup(input: {
+    projectRoot: string;
+    canonicalDocId: string;
+    supersededDocIds?: string[];
+    archiveAfterDays?: number;
+  }): Promise<{
+    verified: boolean;
+    recommendedAction: "disable" | "archive" | "keep_both" | "review";
+    reason: string;
+    disabledSupersededCount: number;
+    expectedSupersededCount: number;
+    archiveCandidateDocIds: string[];
+    warnings: string[];
+  }> {
+    const verification = await this.verifyConflictResolutionExecution({
+      projectRoot: input.projectRoot,
+      canonicalDocId: input.canonicalDocId,
+      supersededDocIds: input.supersededDocIds
+    });
+
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const superseded = storage.listSources().filter((item) => (input.supersededDocIds ?? []).includes(item.docId));
+      const archiveAfterDays = Math.max(1, input.archiveAfterDays ?? 45);
+      const cutoff = Date.now() - archiveAfterDays * 24 * 60 * 60 * 1000;
+      const archiveCandidateDocIds = superseded
+        .filter((item) => item.isDisabled && item.updatedAt <= cutoff)
+        .map((item) => item.docId);
+
+      if (!verification.verified && !verification.canonicalExists) {
+        return {
+          verified: verification.verified,
+          recommendedAction: "review",
+          reason: "Canonical decision is missing, so the resolution should be reviewed before any follow-up action.",
+          disabledSupersededCount: verification.disabledSupersededCount,
+          expectedSupersededCount: verification.expectedSupersededCount,
+          archiveCandidateDocIds,
+          warnings: verification.warnings
+        };
+      }
+
+      if (verification.expectedSupersededCount > verification.disabledSupersededCount) {
+        return {
+          verified: verification.verified,
+          recommendedAction: "disable",
+          reason: "Some superseded conflict decisions are still active. Disable them before treating the canonical policy as settled.",
+          disabledSupersededCount: verification.disabledSupersededCount,
+          expectedSupersededCount: verification.expectedSupersededCount,
+          archiveCandidateDocIds,
+          warnings: verification.warnings
+        };
+      }
+
+      if (
+        verification.expectedSupersededCount > 0 &&
+        archiveCandidateDocIds.length === verification.expectedSupersededCount
+      ) {
+        return {
+          verified: verification.verified,
+          recommendedAction: "archive",
+          reason: `All superseded conflict decisions are disabled and older than ${archiveAfterDays} days, so they are ready for cold-tier archiving.`,
+          disabledSupersededCount: verification.disabledSupersededCount,
+          expectedSupersededCount: verification.expectedSupersededCount,
+          archiveCandidateDocIds,
+          warnings: verification.warnings
+        };
+      }
+
+      return {
+        verified: verification.verified,
+        recommendedAction: "keep_both",
+        reason: "The canonical decision is in place and current follow-up state looks acceptable, so you can keep both the canonical note and the superseded records for now.",
+        disabledSupersededCount: verification.disabledSupersededCount,
+        expectedSupersededCount: verification.expectedSupersededCount,
+        archiveCandidateDocIds,
+        warnings: verification.warnings
+      };
+    } finally {
+      storage.close();
+    }
+  }
+
   async consolidateMemories(input: {
     projectRoot: string;
     docIds: string[];

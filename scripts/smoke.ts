@@ -273,6 +273,15 @@ async function main(): Promise<void> {
     );
     assert.equal(conflictVerification.verified, true);
 
+    const conflictFollowup = await timed("suggest_conflict_resolution_followup", steps, async () =>
+      service.suggestConflictResolutionFollowup({
+        projectRoot,
+        canonicalDocId: executedConflictResolution.docId ?? "",
+        supersededDocIds: conflictPlans[0]?.consolidateInput.docIds ?? []
+      })
+    );
+    assert.ok(["archive", "keep_both", "disable", "review"].includes(conflictFollowup.recommendedAction));
+
     const consolidated = await timed("consolidate_memories", steps, async () =>
       service.consolidateMemories({
         projectRoot,
@@ -311,6 +320,7 @@ async function main(): Promise<void> {
         conflictValidationWarnings: conflictValidation.warnings.length,
         executedConflictResolutionDocId: executedConflictResolution.docId,
         conflictVerificationWarnings: conflictVerification.warnings.length,
+        conflictFollowupAction: conflictFollowup.recommendedAction,
         consolidatedDocId: consolidated.docId
       }
     };

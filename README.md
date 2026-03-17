@@ -64,6 +64,7 @@ Implemented today:
 - conflict-resolution plans with ready-to-run consolidation templates
 - canonical decision execution from reviewed conflict plans
 - preflight validation and post-execution verification for conflict resolution
+- follow-up governance suggestions after canonical decision execution
 - consolidation suggestions before manual merge
 - benchmark, smoke, and release-check flows
 
@@ -161,6 +162,7 @@ Development-time MCP command:
 - `validate_conflict_resolution_plan`
 - `execute_conflict_resolution_plan`
 - `verify_conflict_resolution_execution`
+- `suggest_conflict_resolution_followup`
 - `suggest_consolidations`
 - `consolidate_memories`
 

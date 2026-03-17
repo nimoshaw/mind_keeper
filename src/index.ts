@@ -721,6 +721,33 @@ server.tool(
 );
 
 server.tool(
+  "suggest_conflict_resolution_followup",
+  "Suggest the next governance action after conflict-resolution execution, such as disable, archive, keep both, or review.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    canonical_doc_id: z.string().min(1).describe("The canonical decision doc id produced by execution."),
+    superseded_doc_ids: z.array(z.string()).optional().describe("The superseded decision doc ids to inspect."),
+    archive_after_days: z.number().int().positive().max(3650).optional().describe("Treat disabled superseded decisions older than this many days as archive candidates. Defaults to 45.")
+  },
+  async ({ project_root, canonical_doc_id, superseded_doc_ids, archive_after_days }) => {
+    const result = await service.suggestConflictResolutionFollowup({
+      projectRoot: project_root,
+      canonicalDocId: canonical_doc_id,
+      supersededDocIds: superseded_doc_ids,
+      archiveAfterDays: archive_after_days
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "suggest_consolidations",
   "Suggest groups of related memories that look similar enough to consolidate into one stable note.",
   {

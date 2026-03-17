@@ -18,6 +18,7 @@ This file tracks what is already live in the current project and what still belo
 - Conflict-resolution plans with executable consolidation templates
 - Canonical decision execution from reviewed conflict plans
 - Preflight validation and post-execution verification for conflict resolution
+- Follow-up governance suggestions after canonical decision execution
 - Consolidation suggestion scanning for related memories
 - Benchmark, smoke, and regression coverage
 

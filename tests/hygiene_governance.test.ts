@@ -312,6 +312,95 @@ test("executeConflictResolutionPlan writes a canonical decision and can disable 
   }
 });
 
+test("suggestConflictResolutionFollowup recommends disable when superseded conflicts remain active", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflict-followup-disable-"));
+  const service = new MindKeeperService();
+
+  try {
+    const first = await service.rememberDecision({
+      projectRoot,
+      title: "Prefer hash-local embeddings for local work",
+      decision: "Prefer hash-local for local development and fast recall experiments.",
+      moduleName: "retrieval",
+      tags: ["embedding", "local"]
+    });
+    const second = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use hash-local embeddings",
+      decision: "Do not use hash-local in this workflow because the policy changed.",
+      moduleName: "retrieval",
+      tags: ["embedding", "policy"]
+    });
+
+    const executed = await service.executeConflictResolutionPlan({
+      projectRoot,
+      docIds: [first.docId, second.docId],
+      title: "Canonical hash local decision",
+      decision: "Adopt one canonical policy for hash local and retire conflicting guidance.",
+      disableInputs: false
+    });
+
+    const followup = await service.suggestConflictResolutionFollowup({
+      projectRoot,
+      canonicalDocId: executed.docId ?? "",
+      supersededDocIds: [first.docId, second.docId]
+    });
+
+    assert.equal(followup.recommendedAction, "disable");
+    assert.equal(followup.expectedSupersededCount, 2);
+    assert.equal(followup.disabledSupersededCount, 0);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("suggestConflictResolutionFollowup recommends archive when superseded conflicts are disabled and stale", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflict-followup-archive-"));
+  const service = new MindKeeperService();
+
+  try {
+    const first = await service.rememberDecision({
+      projectRoot,
+      title: "Prefer hash-local embeddings for local work",
+      decision: "Prefer hash-local for local development and fast recall experiments.",
+      moduleName: "retrieval",
+      tags: ["embedding", "local"]
+    });
+    const second = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use hash-local embeddings",
+      decision: "Do not use hash-local in this workflow because the policy changed.",
+      moduleName: "retrieval",
+      tags: ["embedding", "policy"]
+    });
+
+    const executed = await service.executeConflictResolutionPlan({
+      projectRoot,
+      docIds: [first.docId, second.docId],
+      title: "Canonical hash local decision",
+      decision: "Adopt one canonical policy for hash local and retire conflicting guidance.",
+      disableInputs: true
+    });
+
+    const storage = new MindKeeperStorage(projectRoot);
+    storage.setDocumentUpdatedAt(first.docId, Date.now() - 90 * 24 * 60 * 60 * 1000);
+    storage.setDocumentUpdatedAt(second.docId, Date.now() - 90 * 24 * 60 * 60 * 1000);
+    storage.close();
+
+    const followup = await service.suggestConflictResolutionFollowup({
+      projectRoot,
+      canonicalDocId: executed.docId ?? "",
+      supersededDocIds: [first.docId, second.docId],
+      archiveAfterDays: 30
+    });
+
+    assert.equal(followup.recommendedAction, "archive");
+    assert.equal(followup.archiveCandidateDocIds.length, 2);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("consolidateMemories merges related notes into stable knowledge and can disable inputs", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-consolidate-"));
   const service = new MindKeeperService();

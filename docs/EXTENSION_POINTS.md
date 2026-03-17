@@ -92,6 +92,7 @@ What to add:
 - more opinionated conflict-resolution plan generation
 - safer auto-execution policies for canonical decision publishing
 - richer verification policies after canonical decision execution
+- smarter follow-up governance policies after canonical resolution
 - stronger consolidation suggestion ranking
 
 Keep in mind:
