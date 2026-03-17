@@ -1,0 +1,46 @@
+{
+  "name": "mind-keeper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Project-scoped memory MCP for IDE workflows.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test tests/**/*.test.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "status": "tsx scripts/status.ts",
+    "status:save": "tsx scripts/status.ts --out .mindkeeper/manifests/status-latest.json",
+    "verify": "npm run check && npm test && npm run build && npm run smoke",
+    "release:check": "npm run verify && npm run bench:check && npm run bench:suite:check",
+    "bench": "tsx scripts/benchmark.ts",
+    "bench:save": "tsx scripts/benchmark.ts --out .mindkeeper/manifests/benchmark-latest.json",
+    "bench:record": "tsx scripts/benchmark.ts --out .mindkeeper/manifests/benchmark-latest.json --history-dir .mindkeeper/manifests/benchmark-history",
+    "bench:check": "tsx scripts/benchmark.ts --history-dir .mindkeeper/manifests/benchmark-history --check-regressions",
+    "bench:project": "tsx scripts/benchmark.ts --project-root . --project-query \"memory recall branch context decisions session\"",
+    "bench:project:record": "tsx scripts/benchmark.ts --project-root . --project-query \"memory recall branch context decisions session\" --out .mindkeeper/manifests/benchmark-latest.json --history-dir .mindkeeper/manifests/benchmark-history",
+    "bench:suite": "tsx scripts/benchmark.ts --suite benchmarks/workspaces.local.json",
+    "bench:suite:record": "tsx scripts/benchmark.ts --suite benchmarks/workspaces.local.json --out .mindkeeper/manifests/benchmark-suite-latest.json --history-dir .mindkeeper/manifests/benchmark-suite-history",
+    "bench:suite:check": "tsx scripts/benchmark.ts --suite benchmarks/workspaces.local.json --history-dir .mindkeeper/manifests/benchmark-suite-history --check-regressions"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "better-sqlite3": "^12.8.0",
+    "fast-glob": "^3.3.3",
+    "ignore": "^7.0.4",
+    "openai": "^5.20.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.6.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3"
+  }
+}

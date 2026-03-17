@@ -1,0 +1,4 @@
+node_modules/
+dist/
+.mindkeeper/
+*.log

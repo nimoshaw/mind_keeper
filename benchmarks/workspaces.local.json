@@ -1,0 +1,9 @@
+{
+  "projects": [
+    {
+      "name": "mind-keeper",
+      "root": "..",
+      "query": "memory recall branch context decisions session"
+    }
+  ]
+}
