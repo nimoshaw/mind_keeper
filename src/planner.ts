@@ -62,6 +62,15 @@ export interface TaskIntentPlan {
   };
 }
 
+export interface TaskWaveBudgetProfile {
+  overallBudget: number;
+  stableBudget: number;
+  localBudget: number;
+  recentBudget: number;
+  fallbackBudget: number;
+  profileName: "documentation-biased" | "exploration-biased" | "balanced";
+}
+
 export function buildTaskIntentPlan(input: {
   taskStage: ContextTaskStage;
   anchors: TaskIntentAnchors;
@@ -115,7 +124,10 @@ export function buildTaskWavePlan(input: {
   budget: number;
   minScore: number;
 }): RecallWaveDefinition[] {
-  const safeBudget = Math.max(1, input.budget);
+  const budgetProfile = buildTaskWaveBudgetProfile({
+    taskStage: input.taskStage,
+    budget: input.budget
+  });
   const recentOptional = input.taskStage !== "debug" && input.taskStage !== "verify" && input.taskStage !== "explore";
 
   return [
@@ -132,7 +144,7 @@ export function buildTaskWavePlan(input: {
       label: "Stable Memory Wave",
       description: "Prioritize durable project knowledge before expanding into code-local context.",
       sourceKinds: ["manual", "decision"],
-      budget: safeBudget,
+      budget: budgetProfile.stableBudget,
       minScore: input.minScore
     },
     {
@@ -140,7 +152,7 @@ export function buildTaskWavePlan(input: {
       label: "Local Project Wave",
       description: "Gather current-file, related-file, and module-local project context.",
       sourceKinds: ["project"],
-      budget: safeBudget,
+      budget: budgetProfile.localBudget,
       minScore: input.minScore
     },
     {
@@ -148,7 +160,7 @@ export function buildTaskWavePlan(input: {
       label: "Recent History Wave",
       description: "Only expand into diary and imported notes when the first two waves do not produce enough context.",
       sourceKinds: ["diary", "imported"],
-      budget: safeBudget,
+      budget: budgetProfile.recentBudget,
       minScore: Math.max(0, input.minScore - 0.03),
       optional: recentOptional
     },
@@ -157,11 +169,43 @@ export function buildTaskWavePlan(input: {
       label: "Fallback Wave",
       description: "As a last resort, relax thresholds and search across all sources.",
       sourceKinds: ["manual", "decision", "diary", "project", "imported"],
-      budget: safeBudget,
+      budget: budgetProfile.fallbackBudget,
       minScore: 0,
       optional: true
     }
   ];
+}
+
+export function buildTaskWaveBudgetProfile(input: {
+  taskStage: ContextTaskStage;
+  budget: number;
+}): TaskWaveBudgetProfile {
+  const overallBudget = Math.max(1, input.budget);
+  let stableBudget = Math.min(overallBudget, Math.max(1, Math.ceil(overallBudget * 0.55)));
+  let localBudget = Math.min(overallBudget, Math.max(2, Math.ceil(overallBudget * 0.85)));
+  let recentBudget = Math.min(overallBudget, overallBudget >= 4 ? 2 : 1);
+  let profileName: TaskWaveBudgetProfile["profileName"] = "balanced";
+
+  if (input.taskStage === "document") {
+    stableBudget = Math.min(overallBudget, Math.max(2, Math.ceil(overallBudget * 0.75)));
+    localBudget = Math.min(overallBudget, Math.max(1, Math.ceil(overallBudget * 0.5)));
+    recentBudget = 1;
+    profileName = "documentation-biased";
+  } else if (input.taskStage === "explore") {
+    stableBudget = Math.min(overallBudget, Math.max(2, Math.ceil(overallBudget * 0.5)));
+    localBudget = Math.min(overallBudget, Math.max(2, Math.ceil(overallBudget * 0.95)));
+    recentBudget = Math.min(overallBudget, overallBudget >= 3 ? 2 : 1);
+    profileName = "exploration-biased";
+  }
+
+  return {
+    overallBudget,
+    stableBudget,
+    localBudget,
+    recentBudget,
+    fallbackBudget: overallBudget,
+    profileName
+  };
 }
 
 export function evaluateTaskWaveStop(input: {

@@ -78,6 +78,9 @@ test("context_for_task prioritizes decision memory and current file context", as
     assert.equal(result.gates.intentAnchors.symbol, "remember");
     assert.equal(result.gates.queryPlan.projectQueryOrder[0], "current_file");
     assert.ok(result.gates.queryPlan.projectQueryOrder.includes("related_files"));
+    assert.equal(result.gates.waveBudgetProfile.overallBudget, 6);
+    assert.ok(result.gates.waveBudgetProfile.localBudget >= result.gates.waveBudgetProfile.stableBudget);
+    assert.ok(result.gates.wavePlan.some((item) => item.name === "local_project" && item.budget === result.gates.waveBudgetProfile.localBudget));
     assert.ok(result.gates.knowledgeReserve >= 2);
     assert.ok(result.gates.projectReserve >= 1);
     assert.ok(result.gates.budgetPolicy.length > 0);
@@ -143,6 +146,8 @@ test("context_for_task infers documentation stage and explains source budget", a
     assert.equal(result.gates.intentType, "document");
     assert.equal(result.gates.intentAnchors.currentFile, "ARCHITECTURE.md");
     assert.equal(result.gates.queryPlan.projectQueryOrder[0], "current_file");
+    assert.equal(result.gates.waveBudgetProfile.profileName, "documentation-biased");
+    assert.ok(result.gates.waveBudgetProfile.stableBudget >= result.gates.waveBudgetProfile.localBudget);
     assert.ok(/Documentation stage/i.test(result.gates.budgetPolicy));
     assert.equal(result.gates.wavePlanType, "light-wave");
     assert.ok(result.gates.wavePlan.some((item) => item.name === "intent" && item.used));
@@ -209,6 +214,7 @@ test("context_for_task enforces token budget and reports omitted chunks", async 
     assert.equal(result.gates.usedTokenBudgetGate, true);
     assert.equal(result.gates.intentType, "debug");
     assert.ok(result.query.includes("intent: debug"));
+    assert.equal(result.gates.waveBudgetProfile.profileName, "balanced");
     assert.ok(result.gates.confidenceStop.finalScore >= 0);
     assert.ok(result.gates.confidenceStop.redundancyScore >= 0);
     assert.ok(result.gates.confidenceStop.conflictScore >= 0);

@@ -58,6 +58,7 @@ Implemented today:
 - light-wave task context recall
 - intent-first light-wave task context recall
 - confidence-aware wave stopping
+- per-wave budget profiles for task context recall
 - fast recall and deep recall entry points
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation

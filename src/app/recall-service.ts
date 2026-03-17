@@ -6,6 +6,7 @@ import { loadConfig } from "../config.js";
 import { cosineSimilarity, EmbeddingService, normalize } from "../embedding.js";
 import {
   buildTaskIntentPlan,
+  buildTaskWaveBudgetProfile,
   buildTaskWavePlan,
   evaluateTaskWaveStop,
   type ProjectQueryFocus,
@@ -219,6 +220,14 @@ export class RecallService {
         symbolBias: "exact" | "diagnostic-first" | "none";
         branchBias: "prefer_current_branch" | "soft";
       };
+      waveBudgetProfile: {
+        overallBudget: number;
+        stableBudget: number;
+        localBudget: number;
+        recentBudget: number;
+        fallbackBudget: number;
+        profileName: "documentation-biased" | "exploration-biased" | "balanced";
+      };
       knowledgeReserve: number;
       projectReserve: number;
       tokenBudget: number;
@@ -271,6 +280,10 @@ export class RecallService {
       config.retrieval.taskKnowledgeReserve,
       config.retrieval.taskContextTokenBudget
     );
+    const waveBudgetProfile = buildTaskWaveBudgetProfile({
+      taskStage,
+      budget
+    });
     const relatedFileNames = dedupeStrings(relatedFiles.map((item) => path.basename(item)).filter(Boolean));
     const intentPlan = buildTaskIntentPlan({
       taskStage,
@@ -325,11 +338,12 @@ export class RecallService {
     });
     let knowledgeResults = stableResults;
     let recentWaveUsed = false;
+    const localWave = wavePlan[2];
 
     const projectQueries = buildProjectQueries({
       projectRoot: input.projectRoot,
       query,
-      budget,
+      budget: localWave.budget,
       sourceKinds: intentPlan.queryPlan.localSourceKinds,
       projectQueryOrder: intentPlan.queryPlan.projectQueryOrder,
       currentFileName,
@@ -358,7 +372,6 @@ export class RecallService {
       });
     let stopReason = stopDecision.reason ?? "";
 
-    const localWave = wavePlan[2];
     if (!stopReason) {
       for (const projectQuery of projectQueries) {
         const partial = await this.recall(projectQuery);
@@ -506,6 +519,7 @@ export class RecallService {
         intentType: intentPlan.intentType,
         intentAnchors: intentPlan.anchors,
         queryPlan: intentPlan.queryPlan,
+        waveBudgetProfile,
         symbol: symbol ?? null,
         language: language ?? null,
         branchName: branchName ?? null,

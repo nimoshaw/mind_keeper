@@ -155,6 +155,7 @@ async function main(): Promise<void> {
     assert.equal(context.gates.intentType, "debug");
     assert.ok(context.gates.wavePlan.some((item) => item.name === "intent" && item.used));
     assert.ok(context.gates.queryPlan.projectQueryOrder.includes("current_file"));
+    assert.ok(context.gates.waveBudgetProfile.localBudget >= context.gates.waveBudgetProfile.stableBudget);
     assert.ok(context.gates.confidenceStop.finalScore >= 0);
     assert.ok(context.gates.wavePlan.length >= 3);
     assert.ok(Boolean(context.gates.stopReason));
@@ -323,6 +324,7 @@ async function main(): Promise<void> {
         sessionDocId: summary.docId,
         contextHits: context.results.length,
         intentType: context.gates.intentType,
+        waveBudgetProfile: context.gates.waveBudgetProfile.profileName,
         confidenceStopReason: context.gates.confidenceStop.reason,
         recallHits: recall.length,
         fastRecallHits: fastRecall.length,
