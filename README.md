@@ -57,6 +57,7 @@ Implemented today:
 - write-time memory distillation
 - light-wave task context recall
 - intent-first light-wave task context recall
+- confidence-aware wave stopping
 - fast recall and deep recall entry points
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation

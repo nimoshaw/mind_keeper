@@ -23,6 +23,18 @@ export interface RecallWaveResult {
   resultCount: number;
 }
 
+export interface TaskWaveStopDecision {
+  waveName: RecallWaveName;
+  shouldStop: boolean;
+  reason: string | null;
+  coverageScore: number;
+  confidenceScore: number;
+  redundancyScore: number;
+  conflictScore: number;
+  finalScore: number;
+  threshold: number;
+}
+
 export interface TaskIntentAnchors {
   currentFile: string | null;
   moduleName: string | null;
@@ -152,7 +164,92 @@ export function buildTaskWavePlan(input: {
   ];
 }
 
-export function shouldStopTaskWave(input: {
+export function evaluateTaskWaveStop(input: {
+  waveName: RecallWaveName;
+  taskStage: ContextTaskStage;
+  budget: number;
+  selectedCount: number;
+  stableCount: number;
+  projectCount: number;
+  recentCount: number;
+  knowledgeReserve: number;
+  projectReserve: number;
+  uniqueDocCount: number;
+  topScore: number;
+  averageScore: number;
+  decisionCount: number;
+}): TaskWaveStopDecision {
+  const emptyDecision = {
+    waveName: input.waveName,
+    shouldStop: false,
+    reason: null,
+    coverageScore: 0,
+    confidenceScore: 0,
+    redundancyScore: 0,
+    conflictScore: 0,
+    finalScore: 0,
+    threshold: thresholdForWave(input.waveName, input.taskStage)
+  } satisfies TaskWaveStopDecision;
+
+  if (input.selectedCount <= 0) {
+    return emptyDecision;
+  }
+
+  const threshold = thresholdForWave(input.waveName, input.taskStage);
+  const stableCoverage = Math.min(1, input.stableCount / Math.max(1, input.knowledgeReserve));
+  const projectCoverage = Math.min(1, input.projectCount / Math.max(1, input.projectReserve));
+  const budgetCoverage = Math.min(1, input.selectedCount / Math.max(1, input.budget));
+  const recentCoverage = input.recentCount > 0 ? 1 : 0;
+  const coverageScore = round4(calculateCoverageScore({
+    waveName: input.waveName,
+    stableCoverage,
+    projectCoverage,
+    budgetCoverage,
+    recentCoverage
+  }));
+  const confidenceScore = round4(calculateConfidenceScore(input.topScore, input.averageScore));
+  const redundancyScore = round4(
+    input.selectedCount <= 1
+      ? 0
+      : clamp01(1 - input.uniqueDocCount / input.selectedCount)
+  );
+  const conflictScore = round4(calculateConflictScore(input));
+  const finalScore = round4(
+    coverageScore * 0.5 +
+    confidenceScore * 0.35 +
+    (1 - redundancyScore) * 0.1 +
+    (1 - conflictScore) * 0.05
+  );
+  const legacyReason = legacyStopReason(input);
+  const confidenceReason = confidenceStopReason(input.waveName);
+  const shouldStop =
+    (Boolean(legacyReason) && finalScore >= Math.max(0.55, threshold - 0.12)) ||
+    (
+      Boolean(confidenceReason) &&
+      finalScore >= threshold &&
+      coverageScore >= minimumCoverageForWave(input.waveName) &&
+      conflictScore <= 0.55
+    );
+  const reason = shouldStop ? legacyReason ?? confidenceReason : null;
+
+  return {
+    waveName: input.waveName,
+    shouldStop,
+    reason,
+    coverageScore,
+    confidenceScore,
+    redundancyScore,
+    conflictScore,
+    finalScore,
+    threshold
+  };
+}
+
+export function shouldStopTaskWave(input: Parameters<typeof evaluateTaskWaveStop>[0]): string | null {
+  return evaluateTaskWaveStop(input).reason;
+}
+
+function legacyStopReason(input: {
   waveName: RecallWaveName;
   taskStage: ContextTaskStage;
   budget: number;
@@ -196,4 +293,109 @@ export function shouldStopTaskWave(input: {
   }
 
   return null;
+}
+
+function calculateCoverageScore(input: {
+  waveName: RecallWaveName;
+  stableCoverage: number;
+  projectCoverage: number;
+  budgetCoverage: number;
+  recentCoverage: number;
+}): number {
+  if (input.waveName === "stable_memory") {
+    return input.stableCoverage * 0.75 + input.budgetCoverage * 0.25;
+  }
+
+  if (input.waveName === "local_project") {
+    return input.stableCoverage * 0.4 + input.projectCoverage * 0.35 + input.budgetCoverage * 0.25;
+  }
+
+  if (input.waveName === "recent_history") {
+    return (
+      input.stableCoverage * 0.25 +
+      input.projectCoverage * 0.2 +
+      input.budgetCoverage * 0.2 +
+      input.recentCoverage * 0.35
+    );
+  }
+
+  return input.budgetCoverage;
+}
+
+function calculateConfidenceScore(topScore: number, averageScore: number): number {
+  const normalizedTop = clamp01(topScore / 0.75);
+  const normalizedAverage = clamp01(averageScore / 0.55);
+  return normalizedTop * 0.6 + normalizedAverage * 0.4;
+}
+
+function calculateConflictScore(input: {
+  waveName: RecallWaveName;
+  taskStage: ContextTaskStage;
+  projectCount: number;
+  decisionCount: number;
+}): number {
+  let score = 0;
+
+  if (input.decisionCount >= 2 && input.taskStage !== "document") {
+    score += 0.18 + Math.min(0.18, (input.decisionCount - 2) * 0.08);
+  }
+
+  if (input.waveName === "stable_memory" && input.projectCount === 0 && (input.taskStage === "debug" || input.taskStage === "implement")) {
+    score += 0.16;
+  }
+
+  return clamp01(score);
+}
+
+function thresholdForWave(waveName: RecallWaveName, taskStage: ContextTaskStage): number {
+  if (waveName === "stable_memory") {
+    return taskStage === "document" ? 0.7 : 0.84;
+  }
+
+  if (waveName === "local_project") {
+    return 0.68;
+  }
+
+  if (waveName === "recent_history") {
+    return 0.62;
+  }
+
+  return 1;
+}
+
+function minimumCoverageForWave(waveName: RecallWaveName): number {
+  if (waveName === "stable_memory") {
+    return 0.72;
+  }
+
+  if (waveName === "local_project") {
+    return 0.64;
+  }
+
+  if (waveName === "recent_history") {
+    return 0.58;
+  }
+
+  return 1;
+}
+
+function confidenceStopReason(waveName: RecallWaveName): string | null {
+  if (waveName === "stable_memory") {
+    return "confidence_stop_after_stable_memory";
+  }
+  if (waveName === "local_project") {
+    return "confidence_stop_after_local_project";
+  }
+  if (waveName === "recent_history") {
+    return "confidence_stop_after_recent_history";
+  }
+  return null;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function round4(value: number): number {
+  return Math.round(value * 10000) / 10000;
 }

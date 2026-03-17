@@ -9,7 +9,7 @@ This file tracks what is already live in the current project and what still belo
 - Incremental indexing with manifests
 - Parser-backed symbol extraction for TypeScript, JavaScript, Python, Go, Rust, and Java
 - Hybrid recall with vector, lexical, source-priority, branch, feedback, and relation-aware boosts
-- `context_for_task` with intent-first planning, task-stage, token-budget, and light-wave gating
+- `context_for_task` with intent-first planning, confidence-aware stopping, task-stage, token-budget, and light-wave gating
 - `recallFast` and `recallDeep`
 - Write-time session distillation into `discard / diary / decision / knowledge`
 - Source hygiene with disable/enable, feedback, stale archiving, conflict detection, and consolidation

@@ -86,6 +86,10 @@ test("context_for_task prioritizes decision memory and current file context", as
     assert.ok(result.gates.wavePlan.some((item) => item.name === "stable_memory" && item.used));
     assert.ok(result.gates.wavePlan.some((item) => item.name === "local_project" && item.used));
     assert.ok(result.gates.stopReason.length > 0);
+    assert.ok(result.gates.confidenceStop.finalScore >= 0);
+    assert.ok(result.gates.confidenceStop.threshold > 0);
+    assert.ok(result.gates.confidenceStop.coverageScore >= 0);
+    assert.ok(result.gates.confidenceStop.confidenceScore >= 0);
     assert.ok(result.results.length > 0);
     assert.ok(result.results.some((item) => item.sourceKind === "decision"));
     assert.ok(result.results.some((item) => /src[\\/]+memory\.ts$/.test(item.path)));
@@ -143,6 +147,7 @@ test("context_for_task infers documentation stage and explains source budget", a
     assert.equal(result.gates.wavePlanType, "light-wave");
     assert.ok(result.gates.wavePlan.some((item) => item.name === "intent" && item.used));
     assert.ok(result.gates.wavePlan.some((item) => item.name === "stable_memory"));
+    assert.ok(result.gates.usedConfidenceStop || result.gates.stopReason.length > 0);
     assert.ok(result.gates.knowledgeReserve >= 2);
     assert.ok(result.gates.selectedBySource.decision >= 1);
   } finally {
@@ -204,6 +209,9 @@ test("context_for_task enforces token budget and reports omitted chunks", async 
     assert.equal(result.gates.usedTokenBudgetGate, true);
     assert.equal(result.gates.intentType, "debug");
     assert.ok(result.query.includes("intent: debug"));
+    assert.ok(result.gates.confidenceStop.finalScore >= 0);
+    assert.ok(result.gates.confidenceStop.redundancyScore >= 0);
+    assert.ok(result.gates.confidenceStop.conflictScore >= 0);
     assert.equal(result.gates.usedFallbackWave, false);
     assert.ok(result.gates.omittedByTokenBudget >= 1);
     assert.ok(result.gates.estimatedTokensUsed <= result.gates.tokenBudget || result.results.length === 1);

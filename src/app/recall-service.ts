@@ -7,8 +7,9 @@ import { cosineSimilarity, EmbeddingService, normalize } from "../embedding.js";
 import {
   buildTaskIntentPlan,
   buildTaskWavePlan,
-  shouldStopTaskWave,
+  evaluateTaskWaveStop,
   type ProjectQueryFocus,
+  type RecallWaveName,
   type RecallWaveResult
 } from "../planner.js";
 import { ensureProjectScaffold } from "../project.js";
@@ -228,6 +229,17 @@ export class RecallService {
       usedRecentWave: boolean;
       usedFallbackWave: boolean;
       stopReason: string;
+      usedConfidenceStop: boolean;
+      confidenceStop: {
+        waveName: RecallWaveName | null;
+        finalScore: number;
+        threshold: number;
+        coverageScore: number;
+        confidenceScore: number;
+        redundancyScore: number;
+        conflictScore: number;
+        reason: string | null;
+      };
       wavePlan: RecallWaveResult[];
       selectedBySource: Record<MemorySourceKind, number>;
       fallbackUsed: boolean;
@@ -331,8 +343,8 @@ export class RecallService {
 
     let projectResults: ChunkRecord[] = [];
     let merged = mergeTaskContextResults(knowledgeResults, projectResults, budget, stagePolicy.knowledgeReserve);
-    let stopReason =
-      shouldStopTaskWave({
+    let stopDecision =
+      evaluateTaskWaveStop({
         waveName: stableWave.name,
         taskStage,
         budget,
@@ -341,8 +353,10 @@ export class RecallService {
         projectCount: 0,
         recentCount: 0,
         knowledgeReserve: stagePolicy.knowledgeReserve,
-        projectReserve: stagePolicy.projectReserve
-      }) ?? "";
+        projectReserve: stagePolicy.projectReserve,
+        ...summarizeStopMetrics(merged)
+      });
+    let stopReason = stopDecision.reason ?? "";
 
     const localWave = wavePlan[2];
     if (!stopReason) {
@@ -363,8 +377,8 @@ export class RecallService {
       });
 
       merged = mergeTaskContextResults(knowledgeResults, projectResults, budget, stagePolicy.knowledgeReserve);
-      stopReason =
-        shouldStopTaskWave({
+      stopDecision =
+        evaluateTaskWaveStop({
           waveName: localWave.name,
           taskStage,
           budget,
@@ -373,8 +387,10 @@ export class RecallService {
           projectCount: projectResults.length,
           recentCount: 0,
           knowledgeReserve: stagePolicy.knowledgeReserve,
-          projectReserve: stagePolicy.projectReserve
-        }) ?? "";
+          projectReserve: stagePolicy.projectReserve,
+          ...summarizeStopMetrics(merged)
+        });
+      stopReason = stopDecision.reason ?? "";
     } else {
       waveResults.push({
         ...localWave,
@@ -409,8 +425,8 @@ export class RecallService {
           used: recentWaveUsed,
           resultCount: recentResults.length
         });
-        stopReason =
-          shouldStopTaskWave({
+        stopDecision =
+          evaluateTaskWaveStop({
             waveName: recentWave.name,
             taskStage,
             budget,
@@ -419,8 +435,10 @@ export class RecallService {
             projectCount: projectResults.length,
             recentCount: recentResults.length,
             knowledgeReserve: stagePolicy.knowledgeReserve,
-            projectReserve: stagePolicy.projectReserve
-          }) ?? "";
+            projectReserve: stagePolicy.projectReserve,
+            ...summarizeStopMetrics(merged)
+          });
+        stopReason = stopDecision.reason ?? "";
       } else {
         waveResults.push({
           ...recentWave,
@@ -506,6 +524,17 @@ export class RecallService {
         usedRecentWave: recentWaveUsed,
         usedFallbackWave: fallbackUsed,
         stopReason: stopReason || "token_budget_applied_after_light_wave",
+        usedConfidenceStop: Boolean(stopDecision.reason?.startsWith("confidence_stop_")),
+        confidenceStop: {
+          waveName: stopDecision.reason ? stopDecision.waveName : null,
+          finalScore: stopDecision.finalScore,
+          threshold: stopDecision.threshold,
+          coverageScore: stopDecision.coverageScore,
+          confidenceScore: stopDecision.confidenceScore,
+          redundancyScore: stopDecision.redundancyScore,
+          conflictScore: stopDecision.conflictScore,
+          reason: stopDecision.reason
+        },
         wavePlan: waveResults,
         selectedBySource: summarizeSourceCounts(tokenBudgeted.chunks),
         fallbackUsed
@@ -754,6 +783,37 @@ function buildProjectQueries(input: {
   }
 
   return queries;
+}
+
+function summarizeStopMetrics(chunks: ChunkRecord[]): {
+  uniqueDocCount: number;
+  topScore: number;
+  averageScore: number;
+  decisionCount: number;
+} {
+  if (chunks.length === 0) {
+    return {
+      uniqueDocCount: 0,
+      topScore: 0,
+      averageScore: 0,
+      decisionCount: 0
+    };
+  }
+
+  const uniqueDocCount = new Set(chunks.map((chunk) => chunk.docId)).size;
+  const totalScore = chunks.reduce((sum, chunk) => sum + (chunk.score ?? 0), 0);
+  const decisionCount = new Set(
+    chunks
+      .filter((chunk) => chunk.sourceKind === "decision")
+      .map((chunk) => chunk.docId)
+  ).size;
+
+  return {
+    uniqueDocCount,
+    topScore: chunks[0]?.score ?? 0,
+    averageScore: totalScore / chunks.length,
+    decisionCount
+  };
 }
 
 function dedupeChunks(chunks: ChunkRecord[]): ChunkRecord[] {
