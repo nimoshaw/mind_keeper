@@ -63,6 +63,8 @@ Recent responses can include:
 - `usedRecentWave`
 - `usedFallbackWave`
 - `stopReason`
+- `usedConflictGate`
+- `conflictSummary`
 - `relationBoost`
 - `relationHits`
 

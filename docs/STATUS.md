@@ -12,6 +12,7 @@ This file is the clean status snapshot for the current build.
 - Confidence-aware wave stopping: done
 - Per-wave budgeting: done
 - One-hop memory mesh expansion: done
+- Conflict-aware wave gating: done
 - Fast/deep recall split: done
 - Lightweight graph boosts: done
 - Long-term hygiene baseline: done
@@ -54,6 +55,7 @@ For future maintainers, the main extension map lives in:
 - Parser-backed symbol extraction for TypeScript, JavaScript, Python, Go, Rust, and Java
 - Distilled memory tiers with `discard / diary / decision / knowledge`
 - `context_for_task` with wave planning, task-stage gating, and token budget gating
+- `context_for_task` now suppresses competing conflicting decisions in favor of one canonical decision when stable-wave policy drift is detected
 - `recall_fast` and `recall_deep`
 - Relation-aware rerank using lightweight graph edges
 - Governance tools for stale archive, conflict listing, conflict clustering, and memory consolidation

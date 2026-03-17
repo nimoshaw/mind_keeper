@@ -11,6 +11,7 @@ This file tracks what is already live in the current project and what still belo
 - Hybrid recall with vector, lexical, source-priority, branch, feedback, and relation-aware boosts
 - `context_for_task` with intent-first planning, confidence-aware stopping, per-wave budgets, task-stage, token-budget, and light-wave gating
 - one-hop memory mesh expansion on top of relation-aware graph edges
+- conflict-aware stable-wave gating that prefers one canonical decision when policy drift is detected
 - `recallFast` and `recallDeep`
 - Write-time session distillation into `discard / diary / decision / knowledge`
 - Source hygiene with disable/enable, feedback, stale archiving, conflict detection, and consolidation
@@ -54,6 +55,7 @@ Mind Keeper is intentionally optimized for:
 The current release path has direct coverage for:
 
 - `context_for_task` light-wave explain output
+- conflict-aware wave gating and canonical decision preference
 - `recall_fast` and `recall_deep`
 - relation-aware recall explain output
 - stale archive

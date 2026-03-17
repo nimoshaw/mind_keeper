@@ -228,6 +228,13 @@ export class RecallService {
         fallbackBudget: number;
         profileName: "documentation-biased" | "exploration-biased" | "balanced";
       };
+      usedConflictGate: boolean;
+      conflictSummary: {
+        subjects: string[];
+        keptDocIds: string[];
+        suppressedDocIds: string[];
+        canonicalPreferred: boolean;
+      };
       usedMemoryMesh: boolean;
       memoryMesh: {
         seedDocIds: string[];
@@ -328,7 +335,7 @@ export class RecallService {
     });
 
     const stableWave = wavePlan[1];
-    const stableResults = await this.recall({
+    const rawStableResults = await this.recall({
       projectRoot: input.projectRoot,
       query,
       topK: stableWave.budget,
@@ -337,6 +344,8 @@ export class RecallService {
       minScore: stableWave.minScore,
       explain: true
     });
+    const conflictGate = applyConflictAwareDecisionGate(rawStableResults);
+    const stableResults = conflictGate.filtered;
     waveResults.push({
       ...stableWave,
       used: true,
@@ -551,6 +560,13 @@ export class RecallService {
         intentAnchors: intentPlan.anchors,
         queryPlan: intentPlan.queryPlan,
         waveBudgetProfile,
+        usedConflictGate: conflictGate.used,
+        conflictSummary: {
+          subjects: conflictGate.subjects,
+          keptDocIds: conflictGate.keptDocIds,
+          suppressedDocIds: conflictGate.suppressedDocIds,
+          canonicalPreferred: conflictGate.canonicalPreferred
+        },
         usedMemoryMesh: meshCandidates.length > 0,
         memoryMesh: {
           seedDocIds: meshSeedDocIds,
@@ -877,6 +893,83 @@ function selectMeshSeedDocIds(chunks: ChunkRecord[]): string[] {
   return ranked.slice(0, 1).map((chunk) => chunk.docId);
 }
 
+function applyConflictAwareDecisionGate(chunks: ChunkRecord[]): {
+  filtered: ChunkRecord[];
+  used: boolean;
+  subjects: string[];
+  keptDocIds: string[];
+  suppressedDocIds: string[];
+  canonicalPreferred: boolean;
+} {
+  const decisions = dedupeChunks(chunks).filter((chunk) => chunk.sourceKind === "decision");
+  if (decisions.length < 2) {
+    return {
+      filtered: chunks,
+      used: false,
+      subjects: [],
+      keptDocIds: [],
+      suppressedDocIds: [],
+      canonicalPreferred: false
+    };
+  }
+
+  const claimsByDoc = new Map<string, Array<{ subject: string; polarity: "positive" | "negative" }>>();
+  for (const decision of decisions) {
+    claimsByDoc.set(decision.docId, extractDecisionClaims(`${decision.title ?? ""}\n${decision.content}`));
+  }
+
+  const subjectToDocs = new Map<string, { positive: Set<string>; negative: Set<string> }>();
+  for (const decision of decisions) {
+    for (const claim of claimsByDoc.get(decision.docId) ?? []) {
+      const current = subjectToDocs.get(claim.subject) ?? { positive: new Set<string>(), negative: new Set<string>() };
+      current[claim.polarity].add(decision.docId);
+      subjectToDocs.set(claim.subject, current);
+    }
+  }
+
+  const conflictSubjects = Array.from(subjectToDocs.entries())
+    .filter(([, bucket]) => bucket.positive.size > 0 && bucket.negative.size > 0)
+    .map(([subject]) => subject);
+
+  if (conflictSubjects.length === 0) {
+    return {
+      filtered: chunks,
+      used: false,
+      subjects: [],
+      keptDocIds: [],
+      suppressedDocIds: [],
+      canonicalPreferred: false
+    };
+  }
+
+  const conflictingDocIds = new Set<string>();
+  for (const subject of conflictSubjects) {
+    const bucket = subjectToDocs.get(subject);
+    bucket?.positive.forEach((docId) => conflictingDocIds.add(docId));
+    bucket?.negative.forEach((docId) => conflictingDocIds.add(docId));
+  }
+
+  const conflictingChunks = decisions.filter((chunk) => conflictingDocIds.has(chunk.docId));
+  const canonicalDocs = decisions.filter((chunk) =>
+    isCanonicalConflictDecision(chunk) && mentionsConflictSubject(chunk, conflictSubjects)
+  );
+  const keptDocIds = canonicalDocs.length > 0
+    ? canonicalDocs.map((chunk) => chunk.docId)
+    : [conflictingChunks.sort(compareChunks)[0]?.docId].filter((value): value is string => Boolean(value));
+  const keptDocSet = new Set(keptDocIds);
+  const suppressedDocIds = Array.from(conflictingDocIds).filter((docId) => !keptDocSet.has(docId));
+  const suppressedDocSet = new Set(suppressedDocIds);
+
+  return {
+    filtered: chunks.filter((chunk) => !suppressedDocSet.has(chunk.docId)),
+    used: suppressedDocIds.length > 0,
+    subjects: conflictSubjects,
+    keptDocIds,
+    suppressedDocIds,
+    canonicalPreferred: canonicalDocs.length > 0
+  };
+}
+
 function applyMeshExpansion(
   chunk: ChunkRecord,
   meshMatch?: { score: number; hits: string[] }
@@ -900,6 +993,52 @@ function applyMeshExpansion(
         }
       : undefined
   };
+}
+
+function extractDecisionClaims(text: string): Array<{ subject: string; polarity: "positive" | "negative" }> {
+  const normalized = text.toLowerCase();
+  const patterns: Array<{ regex: RegExp; polarity: "positive" | "negative" }> = [
+    { regex: /\b(?:prefer|use|choose|adopt|enable|default to|standardize on)\s+([a-z0-9_/-]+)/g, polarity: "positive" },
+    { regex: /\b(?:avoid|disable|deprecate|reject|do not use|don't use|never use|not use)\s+([a-z0-9_/-]+)/g, polarity: "negative" }
+  ];
+  const claims = new Map<string, { subject: string; polarity: "positive" | "negative" }>();
+
+  for (const pattern of patterns) {
+    for (const match of normalized.matchAll(pattern.regex)) {
+      const subject = normalizeConflictSubject(match[1]);
+      if (!subject) {
+        continue;
+      }
+      claims.set(`${pattern.polarity}:${subject}`, {
+        subject,
+        polarity: pattern.polarity
+      });
+    }
+  }
+
+  return Array.from(claims.values());
+}
+
+function normalizeConflictSubject(value: string): string | null {
+  const normalized = value
+    .trim()
+    .replace(/[^\w/-]+/g, "")
+    .toLowerCase();
+  return normalized || null;
+}
+
+function isCanonicalConflictDecision(chunk: ChunkRecord): boolean {
+  const blob = `${chunk.title ?? ""}\n${chunk.content}`.toLowerCase();
+  return blob.includes("canonical") && blob.includes("conflict-resolution");
+}
+
+function mentionsConflictSubject(chunk: ChunkRecord, subjects: string[]): boolean {
+  if (subjects.length === 0) {
+    return false;
+  }
+
+  const blob = `${chunk.title ?? ""}\n${chunk.content}\n${chunk.tags.join(" ")}`.toLowerCase();
+  return subjects.some((subject) => blob.includes(subject));
 }
 
 function dedupeChunks(chunks: ChunkRecord[]): ChunkRecord[] {

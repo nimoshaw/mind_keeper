@@ -156,6 +156,9 @@ async function main(): Promise<void> {
     assert.ok(context.gates.wavePlan.some((item) => item.name === "intent" && item.used));
     assert.ok(context.gates.queryPlan.projectQueryOrder.includes("current_file"));
     assert.ok(context.gates.waveBudgetProfile.localBudget >= context.gates.waveBudgetProfile.stableBudget);
+    assert.equal(context.gates.usedConflictGate, true);
+    assert.ok(context.gates.conflictSummary.subjects.includes("sqlite"));
+    assert.ok(context.gates.conflictSummary.suppressedDocIds.length >= 1);
     assert.ok(Array.isArray(context.gates.memoryMesh.expandedDocIds));
     assert.ok(context.gates.confidenceStop.finalScore >= 0);
     assert.ok(context.gates.wavePlan.length >= 3);
@@ -326,6 +329,8 @@ async function main(): Promise<void> {
         contextHits: context.results.length,
         intentType: context.gates.intentType,
         waveBudgetProfile: context.gates.waveBudgetProfile.profileName,
+        usedConflictGate: context.gates.usedConflictGate,
+        conflictSubjects: context.gates.conflictSummary.subjects,
         usedMemoryMesh: context.gates.usedMemoryMesh,
         confidenceStopReason: context.gates.confidenceStop.reason,
         recallHits: recall.length,

@@ -225,3 +225,77 @@ test("context_for_task enforces token budget and reports omitted chunks", async 
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("context_for_task uses conflict-aware wave gating to keep one canonical decision", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflict-wave-project-"));
+  const srcDir = path.join(projectRoot, "src");
+  await fs.mkdir(srcDir, { recursive: true });
+
+  const targetFile = path.join(srcDir, "storage.ts");
+  await fs.writeFile(
+    targetFile,
+    [
+      "export function loadManifestStore() {",
+      "  return 'sqlite';",
+      "}"
+    ].join("\n"),
+    "utf8"
+  );
+
+  const service = new MindKeeperService();
+
+  try {
+    await service.indexProject(projectRoot, { force: true });
+
+    const preferSqlite = await service.rememberDecision({
+      projectRoot,
+      title: "Use SQLite for manifests",
+      decision: "Use sqlite for manifests and project metadata.",
+      rationale: "An embedded store keeps the repository portable.",
+      impact: "Storage code should default to sqlite.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "manifest"]
+    });
+
+    const avoidSqlite = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use SQLite for manifests",
+      decision: "Do not use sqlite for manifests and project metadata.",
+      rationale: "Some environments prefer plain files.",
+      impact: "This intentionally conflicts with the prior storage note.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "manifest", "conflict"]
+    });
+
+    const canonical = await service.rememberDecision({
+      projectRoot,
+      title: "Canonical conflict-resolution for sqlite manifests",
+      decision: "Canonical conflict-resolution: adopt sqlite for manifests and project metadata.",
+      rationale: "The team reviewed the storage drift and chose one durable default.",
+      impact: "Prefer the canonical sqlite decision and suppress superseded conflicts in task recall.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "canonical", "conflict-resolution"]
+    });
+
+    const result = await service.contextForTask({
+      projectRoot,
+      task: "Fix manifest storage behavior around sqlite decisions",
+      currentFile: targetFile,
+      currentSymbol: "loadManifestStore",
+      diagnostics: "Conflict in src/storage.ts: sqlite manifest policy drift should resolve to the canonical decision",
+      topK: 5
+    });
+
+    assert.equal(result.gates.usedConflictGate, true);
+    assert.equal(result.gates.conflictSummary.canonicalPreferred, true);
+    assert.ok(result.gates.conflictSummary.subjects.includes("sqlite"));
+    assert.ok(result.gates.conflictSummary.keptDocIds.includes(canonical.docId));
+    assert.ok(result.gates.conflictSummary.suppressedDocIds.includes(preferSqlite.docId));
+    assert.ok(result.gates.conflictSummary.suppressedDocIds.includes(avoidSqlite.docId));
+    assert.ok(result.results.some((item) => item.docId === canonical.docId));
+    assert.ok(!result.results.some((item) => item.docId === preferSqlite.docId));
+    assert.ok(!result.results.some((item) => item.docId === avoidSqlite.docId));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});

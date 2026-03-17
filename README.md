@@ -60,6 +60,7 @@ Implemented today:
 - confidence-aware wave stopping
 - per-wave budget profiles for task context recall
 - one-hop memory mesh expansion after stable hits
+- conflict-aware wave gating for competing decision memories
 - fast recall and deep recall entry points
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation
