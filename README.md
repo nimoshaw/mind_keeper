@@ -56,6 +56,7 @@ Implemented today:
 - incremental indexing with manifests
 - write-time memory distillation
 - light-wave task context recall
+- intent-first light-wave task context recall
 - fast recall and deep recall entry points
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation

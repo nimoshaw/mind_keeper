@@ -72,10 +72,17 @@ test("context_for_task prioritizes decision memory and current file context", as
     assert.equal(result.gates.symbol, "remember");
     assert.equal(result.gates.taskStage, "debug");
     assert.equal(result.gates.usedTaskStageGate, true);
+    assert.equal(result.gates.intentType, "debug");
+    assert.equal(result.gates.intentAnchors.currentFile, "memory.ts");
+    assert.equal(result.gates.intentAnchors.moduleName, "src");
+    assert.equal(result.gates.intentAnchors.symbol, "remember");
+    assert.equal(result.gates.queryPlan.projectQueryOrder[0], "current_file");
+    assert.ok(result.gates.queryPlan.projectQueryOrder.includes("related_files"));
     assert.ok(result.gates.knowledgeReserve >= 2);
     assert.ok(result.gates.projectReserve >= 1);
     assert.ok(result.gates.budgetPolicy.length > 0);
     assert.equal(result.gates.wavePlanType, "light-wave");
+    assert.ok(result.gates.wavePlan.some((item) => item.name === "intent" && item.used));
     assert.ok(result.gates.wavePlan.some((item) => item.name === "stable_memory" && item.used));
     assert.ok(result.gates.wavePlan.some((item) => item.name === "local_project" && item.used));
     assert.ok(result.gates.stopReason.length > 0);
@@ -129,8 +136,12 @@ test("context_for_task infers documentation stage and explains source budget", a
 
     assert.equal(result.gates.taskStage, "document");
     assert.equal(result.gates.usedTaskStageGate, true);
+    assert.equal(result.gates.intentType, "document");
+    assert.equal(result.gates.intentAnchors.currentFile, "ARCHITECTURE.md");
+    assert.equal(result.gates.queryPlan.projectQueryOrder[0], "current_file");
     assert.ok(/Documentation stage/i.test(result.gates.budgetPolicy));
     assert.equal(result.gates.wavePlanType, "light-wave");
+    assert.ok(result.gates.wavePlan.some((item) => item.name === "intent" && item.used));
     assert.ok(result.gates.wavePlan.some((item) => item.name === "stable_memory"));
     assert.ok(result.gates.knowledgeReserve >= 2);
     assert.ok(result.gates.selectedBySource.decision >= 1);
@@ -191,6 +202,8 @@ test("context_for_task enforces token budget and reports omitted chunks", async 
 
     assert.ok(result.results.length >= 1);
     assert.equal(result.gates.usedTokenBudgetGate, true);
+    assert.equal(result.gates.intentType, "debug");
+    assert.ok(result.query.includes("intent: debug"));
     assert.equal(result.gates.usedFallbackWave, false);
     assert.ok(result.gates.omittedByTokenBudget >= 1);
     assert.ok(result.gates.estimatedTokensUsed <= result.gates.tokenBudget || result.results.length === 1);

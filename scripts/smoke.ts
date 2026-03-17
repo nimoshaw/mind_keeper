@@ -152,6 +152,9 @@ async function main(): Promise<void> {
     );
     assert.ok(context.results.some((item) => item.sourceKind === "decision"));
     assert.equal(context.gates.wavePlanType, "light-wave");
+    assert.equal(context.gates.intentType, "debug");
+    assert.ok(context.gates.wavePlan.some((item) => item.name === "intent" && item.used));
+    assert.ok(context.gates.queryPlan.projectQueryOrder.includes("current_file"));
     assert.ok(context.gates.wavePlan.length >= 3);
     assert.ok(Boolean(context.gates.stopReason));
 
@@ -318,6 +321,7 @@ async function main(): Promise<void> {
         importedDocId: imported.docId,
         sessionDocId: summary.docId,
         contextHits: context.results.length,
+        intentType: context.gates.intentType,
         recallHits: recall.length,
         fastRecallHits: fastRecall.length,
         deepRecallHits: deepRecall.length,

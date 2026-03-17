@@ -1,6 +1,7 @@
 import type { ContextTaskStage, MemorySourceKind } from "./types.js";
 
 export type RecallWaveName = "intent" | "stable_memory" | "local_project" | "recent_history" | "fallback";
+export type ProjectQueryFocus = "current_file" | "related_files" | "module" | "broad_project";
 
 export interface RecallWaveDefinition {
   name: RecallWaveName;
@@ -22,6 +23,81 @@ export interface RecallWaveResult {
   resultCount: number;
 }
 
+export interface TaskIntentAnchors {
+  currentFile: string | null;
+  moduleName: string | null;
+  symbol: string | null;
+  language: string | null;
+  branchName: string | null;
+  relatedFiles: string[];
+  diagnosticFiles: string[];
+  diagnosticSymbols: string[];
+  hasSelectedText: boolean;
+  hasDiagnostics: boolean;
+}
+
+export interface TaskIntentPlan {
+  intentType: ContextTaskStage;
+  anchors: TaskIntentAnchors;
+  queryPlan: {
+    stableSourceKinds: MemorySourceKind[];
+    localSourceKinds: MemorySourceKind[];
+    recentSourceKinds: MemorySourceKind[];
+    fallbackSourceKinds: MemorySourceKind[];
+    projectQueryOrder: ProjectQueryFocus[];
+    symbolBias: "exact" | "diagnostic-first" | "none";
+    branchBias: "prefer_current_branch" | "soft";
+  };
+}
+
+export function buildTaskIntentPlan(input: {
+  taskStage: ContextTaskStage;
+  anchors: TaskIntentAnchors;
+}): TaskIntentPlan {
+  const projectQueryOrder: ProjectQueryFocus[] = [];
+  const pushFocus = (focus: ProjectQueryFocus) => {
+    if (!projectQueryOrder.includes(focus)) {
+      projectQueryOrder.push(focus);
+    }
+  };
+
+  if (input.anchors.currentFile) {
+    pushFocus("current_file");
+  }
+
+  if (input.taskStage === "explore" && input.anchors.moduleName) {
+    pushFocus("module");
+  }
+
+  if (input.anchors.relatedFiles.length > 0) {
+    pushFocus("related_files");
+  }
+
+  if (input.taskStage !== "explore" && input.anchors.moduleName) {
+    pushFocus("module");
+  }
+
+  pushFocus("broad_project");
+
+  return {
+    intentType: input.taskStage,
+    anchors: input.anchors,
+    queryPlan: {
+      stableSourceKinds: ["manual", "decision"],
+      localSourceKinds: ["project"],
+      recentSourceKinds: ["diary", "imported"],
+      fallbackSourceKinds: ["manual", "decision", "diary", "project", "imported"],
+      projectQueryOrder,
+      symbolBias: input.anchors.symbol
+        ? "exact"
+        : input.anchors.diagnosticSymbols.length > 0
+          ? "diagnostic-first"
+          : "none",
+      branchBias: input.anchors.branchName ? "prefer_current_branch" : "soft"
+    }
+  };
+}
+
 export function buildTaskWavePlan(input: {
   taskStage: ContextTaskStage;
   budget: number;
@@ -31,6 +107,14 @@ export function buildTaskWavePlan(input: {
   const recentOptional = input.taskStage !== "debug" && input.taskStage !== "verify" && input.taskStage !== "explore";
 
   return [
+    {
+      name: "intent",
+      label: "Intent Wave",
+      description: "Anchor task intent, code focus, diagnostics, and branch hints before retrieval starts.",
+      sourceKinds: [],
+      budget: 0,
+      minScore: 0
+    },
     {
       name: "stable_memory",
       label: "Stable Memory Wave",

@@ -4,7 +4,13 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { loadConfig } from "../config.js";
 import { cosineSimilarity, EmbeddingService, normalize } from "../embedding.js";
-import { buildTaskWavePlan, shouldStopTaskWave, type RecallWaveResult } from "../planner.js";
+import {
+  buildTaskIntentPlan,
+  buildTaskWavePlan,
+  shouldStopTaskWave,
+  type ProjectQueryFocus,
+  type RecallWaveResult
+} from "../planner.js";
 import { ensureProjectScaffold } from "../project.js";
 import { RerankerService } from "../reranker.js";
 import { detectLanguage as detectIndexedLanguage, inferSymbolName as inferIndexedSymbolName } from "../symbols.js";
@@ -190,6 +196,28 @@ export class RecallService {
       diagnosticSymbols: string[];
       budget: number;
       budgetPolicy: string;
+      intentType: ContextTaskStage;
+      intentAnchors: {
+        currentFile: string | null;
+        moduleName: string | null;
+        symbol: string | null;
+        language: string | null;
+        branchName: string | null;
+        relatedFiles: string[];
+        diagnosticFiles: string[];
+        diagnosticSymbols: string[];
+        hasSelectedText: boolean;
+        hasDiagnostics: boolean;
+      };
+      queryPlan: {
+        stableSourceKinds: MemorySourceKind[];
+        localSourceKinds: MemorySourceKind[];
+        recentSourceKinds: MemorySourceKind[];
+        fallbackSourceKinds: MemorySourceKind[];
+        projectQueryOrder: ProjectQueryFocus[];
+        symbolBias: "exact" | "diagnostic-first" | "none";
+        branchBias: "prefer_current_branch" | "soft";
+      };
       knowledgeReserve: number;
       projectReserve: number;
       tokenBudget: number;
@@ -232,13 +260,35 @@ export class RecallService {
       config.retrieval.taskContextTokenBudget
     );
     const relatedFileNames = dedupeStrings(relatedFiles.map((item) => path.basename(item)).filter(Boolean));
+    const intentPlan = buildTaskIntentPlan({
+      taskStage,
+      anchors: {
+        currentFile: currentFileName ?? null,
+        moduleName: moduleName ?? null,
+        symbol: symbol ?? null,
+        language: language ?? null,
+        branchName: branchName ?? null,
+        relatedFiles: relatedFiles.map((item) => relativeOrOriginal(input.projectRoot, item)),
+        diagnosticFiles: diagnosticHints.files.map((item) => relativeOrOriginal(input.projectRoot, item)),
+        diagnosticSymbols: diagnosticHints.symbols,
+        hasSelectedText: Boolean(input.selectedText?.trim()),
+        hasDiagnostics: Boolean(input.diagnostics?.trim())
+      }
+    });
     const wavePlan = buildTaskWavePlan({
       taskStage,
       budget,
       minScore
     });
-    const waveResults: RecallWaveResult[] = [];
+    const waveResults: RecallWaveResult[] = [
+      {
+        ...wavePlan[0],
+        used: true,
+        resultCount: 0
+      }
+    ];
     const query = buildTaskQuery(input, {
+      intentType: intentPlan.intentType,
       symbol,
       branchName,
       relatedFiles,
@@ -246,12 +296,12 @@ export class RecallService {
       diagnosticSymbols: diagnosticHints.symbols
     });
 
-    const stableWave = wavePlan[0];
+    const stableWave = wavePlan[1];
     const stableResults = await this.recall({
       projectRoot: input.projectRoot,
       query,
       topK: stableWave.budget,
-      sourceKinds: stableWave.sourceKinds,
+      sourceKinds: intentPlan.queryPlan.stableSourceKinds,
       relatedPaths: relatedFileNames,
       minScore: stableWave.minScore,
       explain: true
@@ -264,56 +314,19 @@ export class RecallService {
     let knowledgeResults = stableResults;
     let recentWaveUsed = false;
 
-    const projectQueries: RecallInput[] = [];
-    if (currentFileName) {
-      projectQueries.push({
-        projectRoot: input.projectRoot,
-        query,
-        topK: budget,
-        sourceKinds: ["project"],
-        pathContains: currentFileName,
-        moduleName,
-        language,
-        symbol: symbol ?? undefined,
-        branchName: branchName ?? undefined,
-        relatedPaths: relatedFileNames,
-        minScore: minScore + 0.05,
-        explain: true
-      });
-    }
-
-    for (const fileName of relatedFileNames.slice(0, 3)) {
-      if (fileName === currentFileName) {
-        continue;
-      }
-      projectQueries.push({
-        projectRoot: input.projectRoot,
-        query,
-        topK: budget,
-        sourceKinds: ["project"],
-        pathContains: fileName,
-        moduleName,
-        language,
-        symbol: symbol ?? undefined,
-        branchName: branchName ?? undefined,
-        relatedPaths: relatedFileNames,
-        minScore,
-        explain: true
-      });
-    }
-
-    projectQueries.push({
+    const projectQueries = buildProjectQueries({
       projectRoot: input.projectRoot,
       query,
-      topK: budget,
-      sourceKinds: ["project"],
+      budget,
+      sourceKinds: intentPlan.queryPlan.localSourceKinds,
+      projectQueryOrder: intentPlan.queryPlan.projectQueryOrder,
+      currentFileName,
+      relatedFileNames,
       moduleName,
       language,
-      symbol: symbol ?? undefined,
-      branchName: branchName ?? undefined,
-      relatedPaths: relatedFileNames,
-      minScore,
-      explain: true
+      symbol,
+      branchName,
+      minScore
     });
 
     let projectResults: ChunkRecord[] = [];
@@ -331,7 +344,7 @@ export class RecallService {
         projectReserve: stagePolicy.projectReserve
       }) ?? "";
 
-    const localWave = wavePlan[1];
+    const localWave = wavePlan[2];
     if (!stopReason) {
       for (const projectQuery of projectQueries) {
         const partial = await this.recall(projectQuery);
@@ -370,7 +383,7 @@ export class RecallService {
       });
     }
 
-    const recentWave = wavePlan[2];
+    const recentWave = wavePlan[3];
     if (!stopReason) {
       const shouldUseRecentWave =
         !recentWave.optional ||
@@ -382,7 +395,7 @@ export class RecallService {
           projectRoot: input.projectRoot,
           query,
           topK: recentWave.budget,
-          sourceKinds: recentWave.sourceKinds,
+          sourceKinds: intentPlan.queryPlan.recentSourceKinds,
           branchName: branchName ?? undefined,
           relatedPaths: relatedFileNames,
           minScore: recentWave.minScore,
@@ -426,12 +439,12 @@ export class RecallService {
     let fallbackUsed = false;
 
     if (merged.length === 0) {
-      const fallbackWave = wavePlan[3];
+      const fallbackWave = wavePlan[4];
       merged = await this.recall({
         projectRoot: input.projectRoot,
         query,
         topK: fallbackWave.budget,
-        sourceKinds: fallbackWave.sourceKinds,
+        sourceKinds: intentPlan.queryPlan.fallbackSourceKinds,
         minScore: fallbackWave.minScore,
         explain: true
       });
@@ -443,7 +456,7 @@ export class RecallService {
       });
       stopReason = "fallback_wave_used";
     } else {
-      const fallbackWave = wavePlan[3];
+      const fallbackWave = wavePlan[4];
       waveResults.push({
         ...fallbackWave,
         used: false,
@@ -472,6 +485,9 @@ export class RecallService {
         usedBranchGate: Boolean(branchName),
         usedDiagnosticsGate: Boolean(input.diagnostics?.trim()),
         usedRelatedFileGate: relatedFileNames.length > 0,
+        intentType: intentPlan.intentType,
+        intentAnchors: intentPlan.anchors,
+        queryPlan: intentPlan.queryPlan,
         symbol: symbol ?? null,
         language: language ?? null,
         branchName: branchName ?? null,
@@ -583,6 +599,7 @@ export class RecallService {
 function buildTaskQuery(
   input: ContextForTaskInput,
   hints?: {
+    intentType?: ContextTaskStage;
     symbol?: string;
     branchName?: string;
     relatedFiles?: string[];
@@ -591,6 +608,10 @@ function buildTaskQuery(
   }
 ): string {
   const parts = [`task: ${input.task.trim()}`];
+
+  if (hints?.intentType) {
+    parts.push(`intent: ${hints.intentType}`);
+  }
 
   if (input.currentFile) {
     parts.push(`current_file: ${path.basename(input.currentFile)}`);
@@ -625,6 +646,114 @@ function buildTaskQuery(
   }
 
   return parts.join("\n");
+}
+
+function buildProjectQueries(input: {
+  projectRoot: string;
+  query: string;
+  budget: number;
+  sourceKinds: MemorySourceKind[];
+  projectQueryOrder: ProjectQueryFocus[];
+  currentFileName?: string;
+  relatedFileNames: string[];
+  moduleName?: string;
+  language?: string;
+  symbol?: string;
+  branchName?: string;
+  minScore: number;
+}): RecallInput[] {
+  const queries: RecallInput[] = [];
+  const addQuery = (query: RecallInput) => {
+    if (
+      queries.some((existing) =>
+        existing.pathContains === query.pathContains &&
+        existing.moduleName === query.moduleName &&
+        existing.symbol === query.symbol &&
+        existing.language === query.language
+      )
+    ) {
+      return;
+    }
+    queries.push(query);
+  };
+
+  for (const focus of input.projectQueryOrder) {
+    if (focus === "current_file" && input.currentFileName) {
+      addQuery({
+        projectRoot: input.projectRoot,
+        query: input.query,
+        topK: input.budget,
+        sourceKinds: input.sourceKinds,
+        pathContains: input.currentFileName,
+        moduleName: input.moduleName,
+        language: input.language,
+        symbol: input.symbol,
+        branchName: input.branchName,
+        relatedPaths: input.relatedFileNames,
+        minScore: input.minScore + 0.05,
+        explain: true
+      });
+      continue;
+    }
+
+    if (focus === "related_files") {
+      for (const fileName of input.relatedFileNames.slice(0, 3)) {
+        if (fileName === input.currentFileName) {
+          continue;
+        }
+        addQuery({
+          projectRoot: input.projectRoot,
+          query: input.query,
+          topK: input.budget,
+          sourceKinds: input.sourceKinds,
+          pathContains: fileName,
+          moduleName: input.moduleName,
+          language: input.language,
+          symbol: input.symbol,
+          branchName: input.branchName,
+          relatedPaths: input.relatedFileNames,
+          minScore: input.minScore,
+          explain: true
+        });
+      }
+      continue;
+    }
+
+    if (focus === "module" && input.moduleName) {
+      addQuery({
+        projectRoot: input.projectRoot,
+        query: input.query,
+        topK: input.budget,
+        sourceKinds: input.sourceKinds,
+        moduleName: input.moduleName,
+        language: input.language,
+        symbol: input.symbol,
+        branchName: input.branchName,
+        relatedPaths: input.relatedFileNames,
+        minScore: input.minScore,
+        explain: true
+      });
+      continue;
+    }
+
+    if (focus === "broad_project") {
+      addQuery({
+        projectRoot: input.projectRoot,
+        query: input.query,
+        topK: input.budget,
+        sourceKinds: input.sourceKinds,
+        moduleName: input.moduleName,
+        language: input.language,
+        symbol: input.symbol,
+        branchName: input.branchName,
+        relatedPaths: input.relatedFileNames,
+        minScore: input.minScore,
+        explain: true
+      });
+    }
+  }
+
+  return queries;
 }
 
 function dedupeChunks(chunks: ChunkRecord[]): ChunkRecord[] {
