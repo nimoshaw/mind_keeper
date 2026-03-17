@@ -630,6 +630,35 @@ server.tool(
 );
 
 server.tool(
+  "validate_conflict_resolution_plan",
+  "Check whether a reviewed conflict resolution plan is safe to execute before writing a canonical decision.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    doc_ids: z.array(z.string()).min(1).describe("The conflicting decision doc ids covered by this plan."),
+    title: z.string().min(1).describe("Canonical decision title to validate."),
+    decision: z.string().min(1).describe("Canonical decision statement to validate."),
+    disable_inputs: z.boolean().optional().describe("Whether the execution will disable superseded decisions.")
+  },
+  async ({ project_root, doc_ids, title, decision, disable_inputs }) => {
+    const result = await service.validateConflictResolutionPlan({
+      projectRoot: project_root,
+      docIds: doc_ids,
+      title,
+      decision,
+      disableInputs: disable_inputs
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "execute_conflict_resolution_plan",
   "Persist one canonical decision from a reviewed conflict plan and optionally disable the superseded inputs.",
   {
@@ -654,6 +683,31 @@ server.tool(
       moduleName: module_name,
       tags,
       disableInputs: disable_inputs
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
+  "verify_conflict_resolution_execution",
+  "Verify that a canonical conflict-resolution decision exists and that superseded entries were disabled as expected.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    canonical_doc_id: z.string().min(1).describe("The canonical decision doc id produced by execution."),
+    superseded_doc_ids: z.array(z.string()).optional().describe("The superseded decision doc ids that should now be disabled.")
+  },
+  async ({ project_root, canonical_doc_id, superseded_doc_ids }) => {
+    const result = await service.verifyConflictResolutionExecution({
+      projectRoot: project_root,
+      canonicalDocId: canonical_doc_id,
+      supersededDocIds: superseded_doc_ids
     });
     return {
       content: [

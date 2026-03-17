@@ -141,6 +141,16 @@ export class MindKeeperService {
     return this.hygieneService.planConflictResolutions(input);
   }
 
+  async validateConflictResolutionPlan(input: {
+    projectRoot: string;
+    docIds: string[];
+    title: string;
+    decision: string;
+    disableInputs?: boolean;
+  }) {
+    return this.hygieneService.validateConflictResolutionPlan(input);
+  }
+
   async executeConflictResolutionPlan(input: {
     projectRoot: string;
     docIds: string[];
@@ -153,6 +163,14 @@ export class MindKeeperService {
     disableInputs?: boolean;
   }) {
     return this.hygieneService.executeConflictResolutionPlan(input);
+  }
+
+  async verifyConflictResolutionExecution(input: {
+    projectRoot: string;
+    canonicalDocId: string;
+    supersededDocIds?: string[];
+  }) {
+    return this.hygieneService.verifyConflictResolutionExecution(input);
   }
 
   async suggestConsolidations(input: {

@@ -298,6 +298,63 @@ export class HygieneService {
     });
   }
 
+  async validateConflictResolutionPlan(input: {
+    projectRoot: string;
+    docIds: string[];
+    title: string;
+    decision: string;
+    disableInputs?: boolean;
+  }): Promise<{
+    canExecute: boolean;
+    sourceCount: number;
+    missingDocIds: string[];
+    disabledDocIds: string[];
+    warnings: string[];
+  }> {
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const listed = storage.listSources();
+      const selected = listed.filter((item) => input.docIds.includes(item.docId));
+      const selectedIds = new Set(selected.map((item) => item.docId));
+      const missingDocIds = input.docIds.filter((docId) => !selectedIds.has(docId));
+      const disabledDocIds = selected.filter((item) => item.isDisabled).map((item) => item.docId);
+      const warnings: string[] = [];
+
+      if (selected.length < 2) {
+        warnings.push("At least two source decisions are recommended for a canonical conflict resolution.");
+      }
+      if (missingDocIds.length > 0) {
+        warnings.push(`Some source decisions were not found: ${missingDocIds.join(", ")}.`);
+      }
+      if (selected.some((item) => item.sourceKind !== "decision")) {
+        warnings.push("All source memories should be decision notes before executing a conflict resolution plan.");
+      }
+      if (!input.title.trim()) {
+        warnings.push("Canonical decision title must not be empty.");
+      }
+      if (!input.decision.trim()) {
+        warnings.push("Canonical decision body must not be empty.");
+      }
+      if (disabledDocIds.length > 0) {
+        warnings.push("Some source decisions are already disabled; review whether they should still participate.");
+      }
+      if (!input.disableInputs) {
+        warnings.push("disableInputs is off, so superseded conflicts will remain active after execution.");
+      }
+
+      return {
+        canExecute: warnings.length === 0,
+        sourceCount: selected.length,
+        missingDocIds,
+        disabledDocIds,
+        warnings
+      };
+    } finally {
+      storage.close();
+    }
+  }
+
   async executeConflictResolutionPlan(input: {
     projectRoot: string;
     docIds: string[];
@@ -356,6 +413,58 @@ export class HygieneService {
         path: result.path,
         sourceCount: selected.length,
         disabledInputs
+      };
+    } finally {
+      storage.close();
+    }
+  }
+
+  async verifyConflictResolutionExecution(input: {
+    projectRoot: string;
+    canonicalDocId: string;
+    supersededDocIds?: string[];
+  }): Promise<{
+    verified: boolean;
+    canonicalExists: boolean;
+    canonicalIsDecision: boolean;
+    canonicalIsTagged: boolean;
+    disabledSupersededCount: number;
+    expectedSupersededCount: number;
+    warnings: string[];
+  }> {
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const listed = storage.listSources();
+      const canonical = listed.find((item) => item.docId === input.canonicalDocId);
+      const superseded = listed.filter((item) => (input.supersededDocIds ?? []).includes(item.docId));
+      const disabledSupersededCount = superseded.filter((item) => item.isDisabled).length;
+      const warnings: string[] = [];
+      const canonicalText = canonical ? await safeReadText(canonical.path) : "";
+
+      if (!canonical) {
+        warnings.push("Canonical decision document was not found.");
+      } else {
+        if (canonical.sourceKind !== "decision") {
+          warnings.push("Canonical document exists but is not stored as a decision.");
+        }
+        const canonicalBlob = `${canonical.title ?? ""}\n${canonicalText}`.toLowerCase();
+        if (!canonicalBlob.includes("canonical") || !canonicalBlob.includes("conflict-resolution")) {
+          warnings.push("Canonical decision is missing expected canonical conflict tags.");
+        }
+      }
+      if ((input.supersededDocIds ?? []).length > 0 && disabledSupersededCount < (input.supersededDocIds ?? []).length) {
+        warnings.push("Not all superseded conflict documents are disabled.");
+      }
+
+      return {
+        verified: warnings.length === 0,
+        canonicalExists: Boolean(canonical),
+        canonicalIsDecision: canonical?.sourceKind === "decision",
+        canonicalIsTagged: Boolean(canonical) && canonicalBlobIncludesTags(canonical?.title ?? "", canonicalText),
+        disabledSupersededCount,
+        expectedSupersededCount: input.supersededDocIds?.length ?? 0,
+        warnings
       };
     } finally {
       storage.close();
@@ -859,6 +968,11 @@ function inferModuleNameFromTitles(titles: string[]): string | undefined {
 
 function humanizeSubject(subject: string): string {
   return subject.replace(/[-_/]+/g, " ").trim();
+}
+
+function canonicalBlobIncludesTags(title: string, content: string): boolean {
+  const blob = `${title}\n${content}`.toLowerCase();
+  return blob.includes("canonical") && blob.includes("conflict-resolution");
 }
 
 function parentBucket(filePath: string): string {

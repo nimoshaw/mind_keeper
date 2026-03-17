@@ -238,6 +238,17 @@ async function main(): Promise<void> {
     );
     assert.ok(conflictPlans.some((item) => item.subject.includes("sqlite")));
 
+    const conflictValidation = await timed("validate_conflict_resolution_plan", steps, async () =>
+      service.validateConflictResolutionPlan({
+        projectRoot,
+        docIds: conflictPlans[0]?.consolidateInput.docIds ?? [],
+        title: conflictPlans[0]?.rememberDecisionDraft.title ?? "Canonical sqlite decision",
+        decision: conflictPlans[0]?.rememberDecisionDraft.decision ?? "Adopt one canonical policy for sqlite.",
+        disableInputs: true
+      })
+    );
+    assert.equal(conflictValidation.canExecute, true);
+
     const executedConflictResolution = await timed("execute_conflict_resolution_plan", steps, async () =>
       service.executeConflictResolutionPlan({
         projectRoot,
@@ -252,6 +263,15 @@ async function main(): Promise<void> {
       })
     );
     assert.equal(executedConflictResolution.persisted, true);
+
+    const conflictVerification = await timed("verify_conflict_resolution_execution", steps, async () =>
+      service.verifyConflictResolutionExecution({
+        projectRoot,
+        canonicalDocId: executedConflictResolution.docId ?? "",
+        supersededDocIds: conflictPlans[0]?.consolidateInput.docIds ?? []
+      })
+    );
+    assert.equal(conflictVerification.verified, true);
 
     const consolidated = await timed("consolidate_memories", steps, async () =>
       service.consolidateMemories({
@@ -288,7 +308,9 @@ async function main(): Promise<void> {
         conflictClusterCount: conflictClusters.length,
         conflictResolutionCount: conflictResolutions.length,
         conflictPlanCount: conflictPlans.length,
+        conflictValidationWarnings: conflictValidation.warnings.length,
         executedConflictResolutionDocId: executedConflictResolution.docId,
+        conflictVerificationWarnings: conflictVerification.warnings.length,
         consolidatedDocId: consolidated.docId
       }
     };

@@ -206,6 +206,43 @@ test("planConflictResolutions returns executable templates for consolidation and
   }
 });
 
+test("validateConflictResolutionPlan checks execution safety before writing a canonical decision", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflict-validate-"));
+  const service = new MindKeeperService();
+
+  try {
+    const first = await service.rememberDecision({
+      projectRoot,
+      title: "Prefer hash-local embeddings for local work",
+      decision: "Prefer hash-local for local development and fast recall experiments.",
+      moduleName: "retrieval",
+      tags: ["embedding", "local"]
+    });
+    const second = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use hash-local embeddings",
+      decision: "Do not use hash-local in this workflow because the policy changed.",
+      moduleName: "retrieval",
+      tags: ["embedding", "policy"]
+    });
+
+    const validation = await service.validateConflictResolutionPlan({
+      projectRoot,
+      docIds: [first.docId, second.docId],
+      title: "Canonical hash local decision",
+      decision: "Adopt one canonical policy for hash local and retire conflicting guidance.",
+      disableInputs: true
+    });
+
+    assert.equal(validation.canExecute, true);
+    assert.equal(validation.sourceCount, 2);
+    assert.equal(validation.missingDocIds.length, 0);
+    assert.equal(validation.warnings.length, 0);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("executeConflictResolutionPlan writes a canonical decision and can disable superseded inputs", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflict-execute-"));
   const service = new MindKeeperService();
@@ -249,6 +286,16 @@ test("executeConflictResolutionPlan writes a canonical decision and can disable 
     assert.equal(executed.persisted, true);
     assert.ok(executed.docId);
     assert.equal(executed.disabledInputs, 2);
+
+    const verification = await service.verifyConflictResolutionExecution({
+      projectRoot,
+      canonicalDocId: executed.docId,
+      supersededDocIds: [first.docId, second.docId]
+    });
+    assert.equal(verification.verified, true);
+    assert.equal(verification.disabledSupersededCount, 2);
+    assert.equal(verification.canonicalExists, true);
+    assert.equal(verification.canonicalIsDecision, true);
 
     const recallResults = await service.recall({
       projectRoot,
