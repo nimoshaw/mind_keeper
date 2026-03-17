@@ -57,6 +57,7 @@ Implemented today:
 - write-time memory distillation
 - light-wave task context recall
 - intent subtype planning for bug fixes, migrations, API changes, docs, and architecture review
+- explainable task-context summaries that tell IDE clients why memory was chosen or suppressed
 - intent-first light-wave task context recall
 - confidence-aware wave stopping
 - per-wave budget profiles for task context recall

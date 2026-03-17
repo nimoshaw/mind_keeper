@@ -95,6 +95,9 @@ test("context_for_task prioritizes decision memory and current file context", as
     assert.ok(result.gates.confidenceStop.coverageScore >= 0);
     assert.ok(result.gates.confidenceStop.confidenceScore >= 0);
     assert.ok(result.results.length > 0);
+    assert.ok(result.results[0]?.explainReasons?.length);
+    assert.ok(result.gates.explainSummary.whyTheseMemories.length > 0);
+    assert.ok(result.gates.explainSummary.whyNotOthers.length > 0);
     assert.ok(result.results.some((item) => item.sourceKind === "decision"));
     assert.ok(result.results.some((item) => /src[\\/]+memory\.ts$/.test(item.path)));
     assert.ok(result.gates.selectedBySource.decision >= 1);
@@ -155,6 +158,7 @@ test("context_for_task infers documentation stage and explains source budget", a
     assert.ok(result.gates.wavePlan.some((item) => item.name === "intent" && item.used));
     assert.ok(result.gates.wavePlan.some((item) => item.name === "stable_memory"));
     assert.ok(result.gates.usedConfidenceStop || result.gates.stopReason.length > 0);
+    assert.ok(result.gates.explainSummary.whyTheseMemories.length > 0);
     assert.ok(result.gates.knowledgeReserve >= 2);
     assert.ok(result.gates.selectedBySource.decision >= 1);
   } finally {
@@ -291,6 +295,7 @@ test("context_for_task uses conflict-aware wave gating to keep one canonical dec
     assert.equal(result.gates.usedConflictGate, true);
     assert.equal(result.gates.conflictSummary.canonicalPreferred, true);
     assert.equal(result.gates.intentSubtype, "bug_fix");
+    assert.ok(result.gates.explainSummary.whyConflictWasSuppressed.some((item) => /canonical|suppressed/i.test(item)));
     assert.ok(result.gates.conflictSummary.subjects.includes("sqlite"));
     assert.ok(result.gates.conflictSummary.keptDocIds.includes(canonical.docId));
     assert.ok(result.gates.conflictSummary.suppressedDocIds.includes(preferSqlite.docId));
@@ -351,6 +356,7 @@ test("context_for_task can adaptively open the recent-history wave for history-f
     assert.equal(result.gates.usedAdaptiveDeepWaveGate, true);
     assert.equal(result.gates.intentSubtype, "docs_update");
     assert.ok(result.gates.deepWaveTriggers.includes("history_hint"));
+    assert.ok(result.gates.explainSummary.whyDeepWaveOpened.some((item) => /historical|previous/i.test(item)));
     assert.equal(result.gates.usedRecentWave, true);
     assert.ok(result.results.some((item) => item.docId === historyDiary.docId));
   } finally {
@@ -399,6 +405,7 @@ test("context_for_task exposes migration intent subtype and migration-biased sta
     assert.equal(result.gates.waveBudgetProfile.intentSubtype, "migration");
     assert.ok(result.gates.queryPlan.stableSourceKinds.includes("imported"));
     assert.ok(result.gates.deepWaveTriggers.includes("required_for_intent_subtype"));
+    assert.ok(result.query.includes("intent_subtype: migration"));
   } finally {
     await fs.rm(projectRoot, { recursive: true, force: true });
   }

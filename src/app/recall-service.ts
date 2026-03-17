@@ -180,7 +180,8 @@ export class RecallService {
         topK
       });
 
-      return modelReranked.slice(0, topK);
+      const finalChunks = modelReranked.slice(0, topK);
+      return input.explain ? finalChunks.map((chunk) => annotateChunkExplain(chunk)) : finalChunks;
     } finally {
       storage.close();
     }
@@ -260,6 +261,12 @@ export class RecallService {
       wavePlanType: "light-wave";
       usedAdaptiveDeepWaveGate: boolean;
       deepWaveTriggers: string[];
+      explainSummary: {
+        whyDeepWaveOpened: string[];
+        whyConflictWasSuppressed: string[];
+        whyTheseMemories: string[];
+        whyNotOthers: string[];
+      };
       usedRecentWave: boolean;
       usedFallbackWave: boolean;
       stopReason: string;
@@ -578,6 +585,16 @@ export class RecallService {
       explain: true
     }).slice(0, budget);
     const tokenBudgeted = applyTaskContextTokenBudget(merged, stagePolicy.tokenBudget);
+    const explainedChunks = tokenBudgeted.chunks.map((chunk) => annotateChunkExplain(chunk));
+    const explainSummary = buildTaskExplainSummary({
+      selectedChunks: explainedChunks,
+      adaptiveDeepWave,
+      recentWaveUsed,
+      fallbackUsed,
+      conflictGate,
+      omittedByTokenBudget: tokenBudgeted.omittedCount,
+      stopReason
+    });
 
     return {
       query,
@@ -626,6 +643,7 @@ export class RecallService {
         wavePlanType: "light-wave",
         usedAdaptiveDeepWaveGate: adaptiveDeepWave.triggers.length > 0,
         deepWaveTriggers: adaptiveDeepWave.triggers,
+        explainSummary,
         usedRecentWave: recentWaveUsed,
         usedFallbackWave: fallbackUsed,
         stopReason: stopReason || "token_budget_applied_after_light_wave",
@@ -641,10 +659,10 @@ export class RecallService {
           reason: stopDecision.reason
         },
         wavePlan: waveResults,
-        selectedBySource: summarizeSourceCounts(tokenBudgeted.chunks),
+        selectedBySource: summarizeSourceCounts(explainedChunks),
         fallbackUsed
       },
-      results: tokenBudgeted.chunks
+      results: explainedChunks
     };
   }
 
@@ -1180,6 +1198,148 @@ function containsHistoryHint(text: string): boolean {
     "历史",
     "过往"
   ].some((hint) => normalized.includes(hint));
+}
+
+function annotateChunkExplain(chunk: ChunkRecord): ChunkRecord {
+  if (!chunk.scoreDetails) {
+    return chunk;
+  }
+
+  const reasons: string[] = [];
+  if ((chunk.scoreDetails.vector ?? 0) >= 0.2) {
+    reasons.push("high semantic similarity");
+  }
+  if ((chunk.scoreDetails.lexical ?? 0) >= 0.08) {
+    reasons.push("strong keyword overlap");
+  }
+  if ((chunk.scoreDetails.tierBoost ?? 0) > 0.18 || (chunk.scoreDetails.stabilityBoost ?? 0) > 0.12) {
+    reasons.push("stable memory priority");
+  }
+  if ((chunk.scoreDetails.pathBoost ?? 0) > 0.08) {
+    reasons.push("current or related file match");
+  }
+  if ((chunk.scoreDetails.symbolBoost ?? 0) > 0.08) {
+    reasons.push("symbol-aware match");
+  }
+  if ((chunk.scoreDetails.branchBoost ?? 0) > 0.04) {
+    reasons.push("current branch preference");
+  }
+  if ((chunk.scoreDetails.feedbackBoost ?? 0) > 0.04) {
+    reasons.push("helpful feedback history");
+  }
+  if ((chunk.scoreDetails.relationBoost ?? 0) > 0.04 || (chunk.relationHits?.length ?? 0) > 0) {
+    reasons.push("memory graph relation hit");
+  }
+  if ((chunk.scoreDetails.rerank ?? 0) > 0.03 || (chunk.scoreDetails.rerankModel ?? 0) > 0.03) {
+    reasons.push("rerank reinforcement");
+  }
+
+  return {
+    ...chunk,
+    explainReasons: reasons.slice(0, 4)
+  };
+}
+
+function buildTaskExplainSummary(input: {
+  selectedChunks: ChunkRecord[];
+  adaptiveDeepWave: {
+    triggers: string[];
+  };
+  recentWaveUsed: boolean;
+  fallbackUsed: boolean;
+  conflictGate: {
+    used: boolean;
+    subjects: string[];
+    keptDocIds: string[];
+    suppressedDocIds: string[];
+    canonicalPreferred: boolean;
+  };
+  omittedByTokenBudget: number;
+  stopReason: string;
+}): {
+  whyDeepWaveOpened: string[];
+  whyConflictWasSuppressed: string[];
+  whyTheseMemories: string[];
+  whyNotOthers: string[];
+} {
+  const whyDeepWaveOpened = input.recentWaveUsed
+    ? input.adaptiveDeepWave.triggers.map(describeDeepWaveTrigger)
+    : input.adaptiveDeepWave.triggers.length > 0
+      ? ["deep wave stayed closed because earlier waves already covered the task"]
+      : ["deep wave stayed closed because no history or low-confidence trigger fired"];
+
+  const whyConflictWasSuppressed = input.conflictGate.used
+    ? [
+        `${input.conflictGate.subjects.join(", ")} had competing decisions`,
+        input.conflictGate.canonicalPreferred
+          ? "a canonical conflict-resolution decision was preferred"
+          : "the highest-ranked decision was kept and competing variants were suppressed"
+      ]
+    : ["no competing stable decision needed suppression"];
+
+  const whyTheseMemories = input.selectedChunks.slice(0, 3).map((chunk) => {
+    const label = chunk.title ?? path.basename(chunk.path);
+    const reasons = chunk.explainReasons?.length ? chunk.explainReasons.join(", ") : "score and stage gating";
+    return `${label}: ${reasons}`;
+  });
+
+  const whyNotOthers: string[] = [];
+  if (input.omittedByTokenBudget > 0) {
+    whyNotOthers.push(`${input.omittedByTokenBudget} lower-priority chunks were dropped by the token budget`);
+  }
+  if (input.conflictGate.suppressedDocIds.length > 0) {
+    whyNotOthers.push(`${input.conflictGate.suppressedDocIds.length} conflicting decision docs were suppressed`);
+  }
+  if (!input.fallbackUsed) {
+    whyNotOthers.push(`fallback stayed closed because ${describeStopReason(input.stopReason)}`);
+  }
+  if (whyNotOthers.length === 0) {
+    whyNotOthers.push("no additional suppression happened beyond normal ranking");
+  }
+
+  return {
+    whyDeepWaveOpened,
+    whyConflictWasSuppressed,
+    whyTheseMemories,
+    whyNotOthers
+  };
+}
+
+function describeDeepWaveTrigger(trigger: string): string {
+  switch (trigger) {
+    case "required_for_task_stage":
+      return "deep wave opened because this task stage expects more historical context";
+    case "required_for_intent_subtype":
+      return "deep wave opened because this intent subtype benefits from historical notes";
+    case "budget_gap":
+      return "deep wave opened because earlier waves did not fill the requested context budget";
+    case "stable_gap":
+      return "deep wave opened because stable memory coverage was still thin";
+    case "history_hint":
+      return "deep wave opened because the task explicitly asked for previous or historical context";
+    case "low_confidence":
+      return "deep wave opened because the earlier wave confidence stayed below the stop threshold";
+    case "unresolved_conflict":
+      return "deep wave opened because competing decisions remained unresolved";
+    default:
+      return `deep wave opened because of ${trigger}`;
+  }
+}
+
+function describeStopReason(reason: string): string {
+  if (reason.startsWith("confidence_stop_")) {
+    return "confidence stop judged the current context strong enough";
+  }
+  if (reason === "budget_satisfied_after_local_project") {
+    return "local project and stable memory already filled the context budget";
+  }
+  if (reason === "stable_memory_satisfied_document_stage") {
+    return "stable memory already covered the documentation task";
+  }
+  if (reason === "fallback_wave_used") {
+    return "fallback already ran";
+  }
+  return reason.replace(/_/g, " ");
 }
 
 function dedupeChunks(chunks: ChunkRecord[]): ChunkRecord[] {

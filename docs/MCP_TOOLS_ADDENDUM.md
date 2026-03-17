@@ -68,6 +68,8 @@ Recent responses can include:
 - `conflictSummary`
 - `usedAdaptiveDeepWaveGate`
 - `deepWaveTriggers`
+- `explainSummary`
+- `explainReasons`
 - `relationBoost`
 - `relationHits`
 

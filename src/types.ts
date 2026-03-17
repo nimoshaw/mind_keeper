@@ -117,6 +117,7 @@ export interface ChunkRecord {
     total: number;
   };
   relationHits?: string[];
+  explainReasons?: string[];
 }
 
 export interface IndexProjectResult {
