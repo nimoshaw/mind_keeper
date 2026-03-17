@@ -553,6 +553,29 @@ server.tool(
 );
 
 server.tool(
+  "list_conflict_clusters",
+  "Group related decision conflicts by shared subject so teams can review drift as one cluster instead of isolated pairs.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    top_k: z.number().int().positive().max(50).optional().describe("Maximum number of conflict clusters to return.")
+  },
+  async ({ project_root, top_k }) => {
+    const result = await service.listConflictClusters({
+      projectRoot: project_root,
+      topK: top_k
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "suggest_consolidations",
   "Suggest groups of related memories that look similar enough to consolidate into one stable note.",
   {

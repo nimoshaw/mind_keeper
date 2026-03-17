@@ -12,6 +12,7 @@ Before calling the current build ready, also confirm:
 - governance tools behave safely:
   - `archive_stale_memories`
   - `list_conflicts`
+  - `list_conflict_clusters`
   - `suggest_consolidations`
   - `consolidate_memories`
 - `npm run verify` exercises those paths end to end without manual setup
@@ -26,6 +27,7 @@ The current build now includes:
 - Phase 3 fast/deep recall entry points
 - Phase 4 lightweight graph edges with relation-aware rerank
 - Phase 5 hygiene tooling for archive, conflict inspection, and consolidation
+- V2 drift review with subject-level conflict clustering
 
 ## Recommended Commands
 
@@ -55,4 +57,4 @@ npm run bench:suite:record
 
 - more parser-backed languages can still be added later
 - conflict detection is still heuristic, not full semantic contradiction analysis
-- consolidation is currently explicit/manual, not yet suggestion-driven
+- consolidation execution is still explicit/manual after suggestions are reviewed

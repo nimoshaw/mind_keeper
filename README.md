@@ -59,6 +59,7 @@ Implemented today:
 - fast recall and deep recall entry points
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation
+- conflict clustering for decision drift review
 - consolidation suggestions before manual merge
 - benchmark, smoke, and release-check flows
 
@@ -150,6 +151,7 @@ Development-time MCP command:
 - `rate_source`
 - `archive_stale_memories`
 - `list_conflicts`
+- `list_conflict_clusters`
 - `suggest_consolidations`
 - `consolidate_memories`
 

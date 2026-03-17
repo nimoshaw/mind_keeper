@@ -116,6 +116,13 @@ export class MindKeeperService {
     return this.hygieneService.listConflicts(input);
   }
 
+  async listConflictClusters(input: {
+    projectRoot: string;
+    topK?: number;
+  }) {
+    return this.hygieneService.listConflictClusters(input);
+  }
+
   async suggestConsolidations(input: {
     projectRoot: string;
     topK?: number;

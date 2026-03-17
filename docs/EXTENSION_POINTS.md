@@ -87,7 +87,7 @@ Primary files:
 What to add:
 
 - new archive policies
-- better conflict clustering
+- deeper conflict clustering or semantic contradiction analysis
 - stronger consolidation suggestion ranking
 
 Keep in mind:

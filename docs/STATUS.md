@@ -13,6 +13,7 @@ This file is the clean status snapshot for the current build.
 - Long-term hygiene baseline: done
 - Productization docs and release checks: done
 - Suggestion-driven consolidation scanning: done
+- Subject-level conflict clustering: done
 
 ## Quick Status Command
 
@@ -45,7 +46,7 @@ For future maintainers, the main extension map lives in:
 - `context_for_task` with wave planning, task-stage gating, and token budget gating
 - `recall_fast` and `recall_deep`
 - Relation-aware rerank using lightweight graph edges
-- Governance tools for stale archive, conflict listing, and memory consolidation
+- Governance tools for stale archive, conflict listing, conflict clustering, and memory consolidation
 - `verify`, benchmark checks, and smoke coverage
 
 ## What `verify` Covers Directly
@@ -62,6 +63,7 @@ The current `npm run verify` path now exercises:
 - fast recall and deep recall
 - stale archive
 - conflict detection
+- conflict clustering
 - memory consolidation
 - compile/build integrity
 
@@ -72,8 +74,7 @@ For release handoff, the current one-command gate is:
 ## Remaining Non-Blockers
 
 - More parser-backed adapters such as C# or Kotlin
-- Smarter conflict clustering than the current heuristic pair matching
-- Suggestion-driven consolidation instead of manual-only consolidation
+- Auto-apply consolidation after suggestion review
 - Richer IDE-side presentation for wave and relation explain output
 - Optional heavier rerank modes when latency budget allows
 

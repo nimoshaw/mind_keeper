@@ -70,6 +70,52 @@ test("listConflicts detects opposing decisions on the same subject", async () =>
   }
 });
 
+test("listConflictClusters groups related decision drift into one subject cluster", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflict-clusters-"));
+  const service = new MindKeeperService();
+
+  try {
+    const first = await service.rememberDecision({
+      projectRoot,
+      title: "Prefer hash-local embeddings for local work",
+      decision: "Prefer hash-local for local development and fast recall experiments.",
+      moduleName: "retrieval",
+      tags: ["embedding", "local"]
+    });
+    const second = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use hash-local embeddings",
+      decision: "Do not use hash-local in this workflow because the policy changed.",
+      moduleName: "retrieval",
+      tags: ["embedding", "policy"]
+    });
+    const third = await service.rememberDecision({
+      projectRoot,
+      title: "Choose hash-local during offline prototyping",
+      decision: "Choose hash-local when running offline prototyping on this module.",
+      moduleName: "retrieval",
+      tags: ["embedding", "prototype"]
+    });
+
+    const clusters = await service.listConflictClusters({
+      projectRoot,
+      topK: 5
+    });
+
+    assert.ok(clusters.length >= 1);
+    const top = clusters[0];
+    assert.equal(top.subject, "hash-local");
+    assert.equal(top.docCount, 3);
+    assert.equal(top.pairCount, 2);
+    assert.ok(top.docIds.includes(first.docId));
+    assert.ok(top.docIds.includes(second.docId));
+    assert.ok(top.docIds.includes(third.docId));
+    assert.match(top.suggestedAction, /consolidate 3 conflicting decisions/i);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("consolidateMemories merges related notes into stable knowledge and can disable inputs", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-consolidate-"));
   const service = new MindKeeperService();

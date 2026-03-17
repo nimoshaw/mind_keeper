@@ -150,46 +150,77 @@ export class HygieneService {
         contents.set(item.docId, await safeReadText(item.path));
       }));
 
-      const conflicts: Array<{
-        leftDocId: string;
-        rightDocId: string;
-        leftTitle: string | null;
-        rightTitle: string | null;
-        subject: string;
-        score: number;
-        reason: string;
-      }> = [];
-
-      for (let i = 0; i < decisions.length; i += 1) {
-        for (let j = i + 1; j < decisions.length; j += 1) {
-          const left = decisions[i];
-          const right = decisions[j];
-          const leftClaims = extractDecisionClaims(`${left.title ?? ""}\n${contents.get(left.docId) ?? ""}`);
-          const rightClaims = extractDecisionClaims(`${right.title ?? ""}\n${contents.get(right.docId) ?? ""}`);
-          for (const leftClaim of leftClaims) {
-            for (const rightClaim of rightClaims) {
-              if (leftClaim.subject !== rightClaim.subject || leftClaim.polarity === rightClaim.polarity) {
-                continue;
-              }
-              const overlapBoost = overlappingTags(left.path, right.path) ? 0.08 : 0;
-              const score = Math.min(1, 0.62 + overlapBoost + leftClaim.confidence * 0.12 + rightClaim.confidence * 0.12);
-              conflicts.push({
-                leftDocId: left.docId,
-                rightDocId: right.docId,
-                leftTitle: left.title,
-                rightTitle: right.title,
-                subject: leftClaim.subject,
-                score: round4(score),
-                reason: `Opposing decision language detected around "${leftClaim.subject}".`
-              });
-            }
-          }
-        }
-      }
-
-      return conflicts
+      return buildConflictPairs(decisions, contents)
         .sort((left, right) => right.score - left.score)
         .slice(0, input.topK ?? 10);
+    } finally {
+      storage.close();
+    }
+  }
+
+  async listConflictClusters(input: {
+    projectRoot: string;
+    topK?: number;
+  }): Promise<Array<{
+    subject: string;
+    docIds: string[];
+    titles: string[];
+    docCount: number;
+    pairCount: number;
+    score: number;
+    reasons: string[];
+    suggestedAction: string;
+  }>> {
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const decisions = storage.listSources().filter((item) => item.sourceKind === "decision");
+      const contents = new Map<string, string>();
+      await Promise.all(decisions.map(async (item) => {
+        contents.set(item.docId, await safeReadText(item.path));
+      }));
+
+      const conflictPairs = buildConflictPairs(decisions, contents);
+      if (conflictPairs.length === 0) {
+        return [];
+      }
+
+      const decisionMap = new Map(decisions.map((item) => [item.docId, item]));
+      const grouped = new Map<string, ConflictPair[]>();
+      for (const pair of conflictPairs) {
+        const current = grouped.get(pair.subject) ?? [];
+        current.push(pair);
+        grouped.set(pair.subject, current);
+      }
+
+      return Array.from(grouped.entries())
+        .map(([subject, pairs]) => {
+          const docIds = Array.from(new Set(pairs.flatMap((pair) => [pair.leftDocId, pair.rightDocId])));
+          const docs = docIds
+            .map((docId) => decisionMap.get(docId))
+            .filter((item): item is MemorySourceRecord => Boolean(item))
+            .sort((left, right) => right.updatedAt - left.updatedAt);
+          const scoreBase = pairs.reduce((sum, pair) => sum + pair.score, 0) / pairs.length;
+          const docSpreadBoost = Math.min(0.12, Math.max(0, docs.length - 2) * 0.05);
+          const pairDensityBoost = Math.min(0.06, Math.max(0, pairs.length - 1) * 0.02);
+          const reasons = dedupeReasons([
+            `Multiple decisions disagree on "${subject}".`,
+            ...pairs.map((pair) => pair.reason)
+          ]);
+
+          return {
+            subject,
+            docIds: docs.map((item) => item.docId),
+            titles: docs.map((item) => item.title ?? item.docId),
+            docCount: docs.length,
+            pairCount: pairs.length,
+            score: round4(Math.min(1, scoreBase + docSpreadBoost + pairDensityBoost)),
+            reasons: reasons.slice(0, 5),
+            suggestedAction: `Review and consolidate ${docs.length} conflicting decisions about "${subject}".`
+          };
+        })
+        .sort((left, right) => right.score - left.score || right.docCount - left.docCount || right.pairCount - left.pairCount)
+        .slice(0, input.topK ?? 8);
     } finally {
       storage.close();
     }
@@ -310,6 +341,16 @@ type PairSuggestion = {
   reasons: string[];
 };
 
+type ConflictPair = {
+  leftDocId: string;
+  rightDocId: string;
+  leftTitle: string | null;
+  rightTitle: string | null;
+  subject: string;
+  score: number;
+  reason: string;
+};
+
 function extractDecisionClaims(text: string): DecisionClaim[] {
   const normalized = text.toLowerCase();
   const patterns: Array<{ regex: RegExp; polarity: "positive" | "negative"; confidence: number }> = [
@@ -381,6 +422,42 @@ async function safeReadText(filePath: string): Promise<string> {
 
 function round4(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+function buildConflictPairs(
+  decisions: MemorySourceRecord[],
+  contents: Map<string, string>
+): ConflictPair[] {
+  const conflicts: ConflictPair[] = [];
+
+  for (let i = 0; i < decisions.length; i += 1) {
+    for (let j = i + 1; j < decisions.length; j += 1) {
+      const left = decisions[i];
+      const right = decisions[j];
+      const leftClaims = extractDecisionClaims(`${left.title ?? ""}\n${contents.get(left.docId) ?? ""}`);
+      const rightClaims = extractDecisionClaims(`${right.title ?? ""}\n${contents.get(right.docId) ?? ""}`);
+      for (const leftClaim of leftClaims) {
+        for (const rightClaim of rightClaims) {
+          if (leftClaim.subject !== rightClaim.subject || leftClaim.polarity === rightClaim.polarity) {
+            continue;
+          }
+          const overlapBoost = overlappingTags(left.path, right.path) ? 0.08 : 0;
+          const score = Math.min(1, 0.62 + overlapBoost + leftClaim.confidence * 0.12 + rightClaim.confidence * 0.12);
+          conflicts.push({
+            leftDocId: left.docId,
+            rightDocId: right.docId,
+            leftTitle: left.title,
+            rightTitle: right.title,
+            subject: leftClaim.subject,
+            score: round4(score),
+            reason: `Opposing decision language detected around "${leftClaim.subject}".`
+          });
+        }
+      }
+    }
+  }
+
+  return conflicts;
 }
 
 function scoreConsolidationPair(
