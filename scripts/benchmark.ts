@@ -361,7 +361,11 @@ async function benchmarkIndexAndRecall(): Promise<{
         "# Architecture",
         "",
         "Mind Keeper stores project memories and decisions.",
-        "Use remember and recall to manage indexed context."
+        "Use remember and recall to manage indexed context.",
+        "",
+        ...new Array(80).fill(
+          "Project memory should stay local, explainable, and lightweight so indexing can scale without turning IDE recall into a heavy background system."
+        )
       ].join("\n")
     }
   ];

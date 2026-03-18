@@ -92,6 +92,8 @@ For future maintainers, the main extension map lives in:
 - `flash_checkpoint`, `flash_resume`, and `flash_clear` now provide one lightweight session-to-session handoff layer under `.mindkeeper/flash`
 - `context_for_task` now reads fresh flash checkpoints automatically and treats flash-touched files as related restart hints
 - `context_for_task` now also refreshes auto flash state in the background with throttled small JSON writes instead of heavy real-time memory recording
+- batch-capable embedding now exists for chunk-heavy indexing paths, creating the first direct implementation step toward the planned VCP-inspired vectorization pipeline
+- benchmark output now captures vectorization baseline metrics for indexing, rebuild, remember, and recall operations
 - Thin facade entry at `src/mindkeeper.ts` with the real service implementation in `src/mindkeeper-facade.ts`
 - Durable memory writes extracted into `src/app/memory-write-service.ts`
 - Project indexing and document persistence extracted into `src/app/project-index-service.ts`

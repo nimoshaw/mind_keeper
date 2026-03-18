@@ -48,6 +48,8 @@ This file tracks what is already live in the current project and what still belo
 - Recovery strategy templates (`safe / standard / aggressive`) plus dry-run planning for operators and IDE clients
 - Structured recovery failure classification with stable codes and operator guidance for config, API-key, and provider failures
 - Benchmark, smoke, and regression coverage
+- Batch-capable embedding for multi-chunk indexing paths
+- Vectorization baseline metrics for indexing, rebuild, remember, and recall benchmarks
 
 ## Product Shape Today
 

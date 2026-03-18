@@ -372,3 +372,19 @@ The next implementation step after this document should be:
 3. integrate it into `project-index-service`
 
 That is the highest-return, lowest-risk starting point.
+
+## Progress Snapshot
+
+Current completed work:
+
+- embedding baseline metrics have been added
+- a first batch-capable embedding path now exists
+- `project-index-service` now uses batch embedding for chunk-heavy indexing work
+
+Still not done:
+
+- central embedding broker
+- vector cache
+- debounce scheduler
+- remote-provider failure isolation per batch item
+- idle release and prewarm policy

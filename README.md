@@ -61,6 +61,8 @@ Implemented today:
 
 - project-scoped `.mindkeeper`
 - incremental indexing with manifests
+- batch-capable embedding for chunk-heavy indexing paths
+- vectorization baseline metrics for indexing, rebuild, remember, and recall
 - write-time memory distillation
 - flash handoff checkpoints for session-to-session resume
 - light-wave task context recall
@@ -211,6 +213,15 @@ Portable package MCP config example:
 ```text
 artifacts/win11/MindKeeper-win11-x64/mcp-client-config.example.json
 ```
+
+Optional embedding batch tuning:
+
+- `MIND_KEEPER_EMBED_BATCH_MAX_ITEMS`
+- `MIND_KEEPER_EMBED_BATCH_MAX_ESTIMATED_TOKENS`
+- `MIND_KEEPER_EMBED_BATCH_CONCURRENCY`
+
+These only affect the newer batch-capable embedding path.
+They are most useful when the active embedding profile is remote and OpenAI-compatible.
 
 ## MCP Usage Flow
 
