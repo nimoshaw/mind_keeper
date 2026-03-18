@@ -66,6 +66,12 @@ npm run bench:record
 npm run bench:suite:record
 ```
 
+Note:
+
+- `bench:suite:check` includes the current `mind-keeper` repository as one workload sample
+- intentional repository growth can move the index-time baseline even when functional behavior stays healthy
+- treat benchmark regressions as release signals to review, not automatic proof of product breakage
+
 ## Remaining Non-Blockers
 
 - more parser-backed languages can still be added later

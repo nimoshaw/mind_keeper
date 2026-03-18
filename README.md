@@ -34,6 +34,9 @@ The original project files stay where they are. Mind Keeper stores index artifac
     decisions/
     imports/
     flash/
+    canonical/
+    indexes/
+      <active-embedding-profile>/
     manifests/
     vector/
     cache/
@@ -46,6 +49,8 @@ Meaning:
 - `decisions/`: durable project decisions
 - `imports/`: manually imported references
 - `flash/`: active work-state handoff for fast resume on the next session
+- `canonical/`: model-agnostic memory descriptors and export-safe cross-agent contract files
+- `indexes/<active-embedding-profile>/`: active embedding profile descriptors and reusable profile-scoped index metadata
 - `manifests/`: indexing summaries, benchmark snapshots, status snapshots
 - `vector/`: SQLite data, chunk metadata, embeddings, retrieval artifacts
 - `cache/`: temporary extraction outputs
@@ -107,6 +112,8 @@ Parser-backed symbol extraction currently covers:
 Use these first when you need to re-enter the project quickly:
 
 - product and architecture status: [docs/STATUS.md](/D:/projects/mind_keeper/docs/STATUS.md)
+- architecture handoff: [docs/ARCHITECTURE.md](/D:/projects/mind_keeper/docs/ARCHITECTURE.md)
+- maintainer handoff: [docs/HANDOFF.md](/D:/projects/mind_keeper/docs/HANDOFF.md)
 - capability matrix: [docs/CAPABILITIES.md](/D:/projects/mind_keeper/docs/CAPABILITIES.md)
 - extension map: [docs/EXTENSION_POINTS.md](/D:/projects/mind_keeper/docs/EXTENSION_POINTS.md)
 - cross-agent compatibility plan: [docs/CROSS_AGENT_COMPAT.md](/D:/projects/mind_keeper/docs/CROSS_AGENT_COMPAT.md)
@@ -401,6 +408,8 @@ npm run release:check
 
 ## Documentation
 
+- [docs/ARCHITECTURE.md](/D:/projects/mind_keeper/docs/ARCHITECTURE.md)
+- [docs/HANDOFF.md](/D:/projects/mind_keeper/docs/HANDOFF.md)
 - [docs/STATUS.md](/D:/projects/mind_keeper/docs/STATUS.md)
 - [docs/CAPABILITIES.md](/D:/projects/mind_keeper/docs/CAPABILITIES.md)
 - [docs/EXTENSION_POINTS.md](/D:/projects/mind_keeper/docs/EXTENSION_POINTS.md)

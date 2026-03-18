@@ -67,6 +67,8 @@ npm run status:save
 
 For future maintainers, the main extension map lives in:
 
+- [docs/HANDOFF.md](/D:/projects/mind_keeper/docs/HANDOFF.md)
+- [docs/ARCHITECTURE.md](/D:/projects/mind_keeper/docs/ARCHITECTURE.md)
 - [docs/EXTENSION_POINTS.md](/D:/projects/mind_keeper/docs/EXTENSION_POINTS.md)
 - [docs/CROSS_AGENT_COMPAT.md](/D:/projects/mind_keeper/docs/CROSS_AGENT_COMPAT.md)
 

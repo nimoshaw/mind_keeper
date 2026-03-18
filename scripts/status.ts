@@ -57,6 +57,8 @@ async function main(): Promise<void> {
     },
     docs: [
       "README.md",
+      "docs/ARCHITECTURE.md",
+      "docs/HANDOFF.md",
       "docs/STATUS.md",
       "docs/CAPABILITIES.md",
       "docs/EXTENSION_POINTS.md",
