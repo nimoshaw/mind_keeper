@@ -10,6 +10,7 @@ This file is the clean status snapshot for the current build.
 - Light-wave task context planning: done
 - Intent subtype planning: done
 - Explain summary layer: done
+- IDE explain panel layer: done
 - Feedback explain loop: done
 - Intent-first task planning layer: done
 - Confidence-aware wave stopping: done
@@ -66,6 +67,7 @@ For future maintainers, the main extension map lives in:
 - `context_for_task` with wave planning, task-stage gating, and token budget gating
 - `context_for_task` now distinguishes finer intent subtypes such as bug fixes, migrations, test repair, docs updates, and architecture review
 - `context_for_task` now returns explanation summaries for why memories were chosen, why deep waves opened, and why competing context was suppressed
+- `context_for_task` now also returns an IDE-friendly explain panel, and each selected memory can expose small explain cards
 - `rate_source` now returns updated helpful/noisy totals, and recall explain output reflects helpful versus noisy feedback directly
 - `context_for_task` now suppresses competing conflicting decisions in favor of one canonical decision when stable-wave policy drift is detected
 - `context_for_task` now opens recent history adaptively for history-focused or low-confidence tasks instead of expanding by default

@@ -118,6 +118,11 @@ export interface ChunkRecord {
   };
   relationHits?: string[];
   explainReasons?: string[];
+  explainCards?: Array<{
+    kind: "match" | "priority" | "warning" | "relation" | "rerank";
+    title: string;
+    detail: string;
+  }>;
 }
 
 export interface IndexProjectResult {

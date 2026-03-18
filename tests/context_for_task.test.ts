@@ -96,8 +96,12 @@ test("context_for_task prioritizes decision memory and current file context", as
     assert.ok(result.gates.confidenceStop.confidenceScore >= 0);
     assert.ok(result.results.length > 0);
     assert.ok(result.results[0]?.explainReasons?.length);
+    assert.ok(result.results[0]?.explainCards?.length);
     assert.ok(result.gates.explainSummary.whyTheseMemories.length > 0);
     assert.ok(result.gates.explainSummary.whyNotOthers.length > 0);
+    assert.ok(result.gates.explainPanel.headline.length > 0);
+    assert.ok(result.gates.explainPanel.highlights.length > 0);
+    assert.ok(result.gates.explainPanel.suppressions.length > 0);
     assert.ok(result.results.some((item) => item.sourceKind === "decision"));
     assert.ok(result.results.some((item) => /src[\\/]+memory\.ts$/.test(item.path)));
     assert.ok(result.gates.selectedBySource.decision >= 1);
@@ -159,6 +163,7 @@ test("context_for_task infers documentation stage and explains source budget", a
     assert.ok(result.gates.wavePlan.some((item) => item.name === "stable_memory"));
     assert.ok(result.gates.usedConfidenceStop || result.gates.stopReason.length > 0);
     assert.ok(result.gates.explainSummary.whyTheseMemories.length > 0);
+    assert.ok(result.gates.explainPanel.headline.length > 0);
     assert.ok(result.gates.knowledgeReserve >= 2);
     assert.ok(result.gates.selectedBySource.decision >= 1);
   } finally {
@@ -357,6 +362,7 @@ test("context_for_task can adaptively open the recent-history wave for history-f
     assert.equal(result.gates.intentSubtype, "docs_update");
     assert.ok(result.gates.deepWaveTriggers.includes("history_hint"));
     assert.ok(result.gates.explainSummary.whyDeepWaveOpened.some((item) => /historical|previous/i.test(item)));
+    assert.ok(result.gates.explainPanel.highlights.some((item) => /History wave opened/i.test(item.title)));
     assert.equal(result.gates.usedRecentWave, true);
     assert.ok(result.results.some((item) => item.docId === historyDiary.docId));
   } finally {

@@ -58,6 +58,7 @@ Implemented today:
 - light-wave task context recall
 - intent subtype planning for bug fixes, migrations, API changes, docs, and architecture review
 - explainable task-context summaries that tell IDE clients why memory was chosen or suppressed
+- IDE-friendly explain panels and per-result explain cards for direct client rendering
 - feedback-aware explain output and immediate vote totals after helpful/noisy signals
 - intent-first light-wave task context recall
 - confidence-aware wave stopping

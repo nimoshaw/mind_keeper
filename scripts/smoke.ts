@@ -163,7 +163,9 @@ async function main(): Promise<void> {
     assert.ok(Array.isArray(context.gates.memoryMesh.expandedDocIds));
     assert.ok(context.gates.confidenceStop.finalScore >= 0);
     assert.ok(context.results[0]?.explainReasons?.length);
+    assert.ok(context.results[0]?.explainCards?.length);
     assert.ok(context.gates.explainSummary.whyTheseMemories.length > 0);
+    assert.ok(context.gates.explainPanel.headline.length > 0);
     assert.ok(context.gates.wavePlan.length >= 3);
     assert.ok(Boolean(context.gates.stopReason));
 
@@ -397,6 +399,7 @@ async function main(): Promise<void> {
         conflictSubjects: context.gates.conflictSummary.subjects,
         usedMemoryMesh: context.gates.usedMemoryMesh,
         explainSummarySample: context.gates.explainSummary.whyTheseMemories[0],
+        explainPanelHeadline: context.gates.explainPanel.headline,
         historyWaveTriggered: historyContext.gates.usedAdaptiveDeepWaveGate,
         historyIntentSubtype: historyContext.gates.intentSubtype,
         historyWaveTriggers: historyContext.gates.deepWaveTriggers,

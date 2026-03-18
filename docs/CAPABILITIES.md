@@ -12,6 +12,7 @@ This file tracks what is already live in the current project and what still belo
 - `context_for_task` with intent-first planning, confidence-aware stopping, per-wave budgets, task-stage, token-budget, and light-wave gating
 - intent subtypes for `bug_root_cause / bug_fix / api_change / migration / test_repair / refactor_safety / docs_update / architecture_review`
 - explain summaries for why task memories were selected, why deep waves opened, and why conflicting memories were suppressed
+- IDE-friendly explain panels and per-result explain cards for direct client rendering
 - feedback-aware recall reasons plus immediate vote totals returned from `rate_source`
 - one-hop memory mesh expansion on top of relation-aware graph edges
 - conflict-aware stable-wave gating that prefers one canonical decision when policy drift is detected

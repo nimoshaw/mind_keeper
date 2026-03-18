@@ -267,6 +267,20 @@ export class RecallService {
         whyTheseMemories: string[];
         whyNotOthers: string[];
       };
+      explainPanel: {
+        headline: string;
+        highlights: Array<{
+          kind: "match" | "priority" | "warning" | "relation" | "rerank";
+          title: string;
+          detail: string;
+        }>;
+        suppressions: Array<{
+          kind: "match" | "priority" | "warning" | "relation" | "rerank";
+          title: string;
+          detail: string;
+        }>;
+        nextActions: string[];
+      };
       usedRecentWave: boolean;
       usedFallbackWave: boolean;
       stopReason: string;
@@ -595,6 +609,15 @@ export class RecallService {
       omittedByTokenBudget: tokenBudgeted.omittedCount,
       stopReason
     });
+    const explainPanel = buildTaskExplainPanel({
+      selectedChunks: explainedChunks,
+      explainSummary,
+      conflictGate,
+      adaptiveDeepWave,
+      recentWaveUsed,
+      fallbackUsed,
+      stopReason
+    });
 
     return {
       query,
@@ -644,6 +667,7 @@ export class RecallService {
         usedAdaptiveDeepWaveGate: adaptiveDeepWave.triggers.length > 0,
         deepWaveTriggers: adaptiveDeepWave.triggers,
         explainSummary,
+        explainPanel,
         usedRecentWave: recentWaveUsed,
         usedFallbackWave: fallbackUsed,
         stopReason: stopReason || "token_budget_applied_after_light_wave",
@@ -1206,40 +1230,96 @@ function annotateChunkExplain(chunk: ChunkRecord): ChunkRecord {
   }
 
   const reasons: string[] = [];
+  const cards: Array<{
+    kind: "match" | "priority" | "warning" | "relation" | "rerank";
+    title: string;
+    detail: string;
+  }> = [];
   if ((chunk.scoreDetails.vector ?? 0) >= 0.2) {
     reasons.push("high semantic similarity");
+    cards.push({
+      kind: "match",
+      title: "Semantic match",
+      detail: "This memory is semantically close to the current task or question."
+    });
   }
   if ((chunk.scoreDetails.lexical ?? 0) >= 0.08) {
     reasons.push("strong keyword overlap");
+    cards.push({
+      kind: "match",
+      title: "Keyword overlap",
+      detail: "Important task words or symbols also appear directly in this memory."
+    });
   }
   if ((chunk.scoreDetails.tierBoost ?? 0) > 0.18 || (chunk.scoreDetails.stabilityBoost ?? 0) > 0.12) {
     reasons.push("stable memory priority");
+    cards.push({
+      kind: "priority",
+      title: "Stable memory",
+      detail: "This entry was boosted because it looks like durable project knowledge."
+    });
   }
   if ((chunk.scoreDetails.pathBoost ?? 0) > 0.08) {
     reasons.push("current or related file match");
+    cards.push({
+      kind: "match",
+      title: "File-local context",
+      detail: "This memory lines up with the current file or nearby related files."
+    });
   }
   if ((chunk.scoreDetails.symbolBoost ?? 0) > 0.08) {
     reasons.push("symbol-aware match");
+    cards.push({
+      kind: "match",
+      title: "Symbol-aware match",
+      detail: "The current symbol or a diagnostic symbol helped pull this memory upward."
+    });
   }
   if ((chunk.scoreDetails.branchBoost ?? 0) > 0.04) {
     reasons.push("current branch preference");
+    cards.push({
+      kind: "priority",
+      title: "Branch preference",
+      detail: "This result received a boost because it fits the current branch view."
+    });
   }
   if ((chunk.scoreDetails.feedbackBoost ?? 0) > 0.04) {
     reasons.push("helpful feedback history");
+    cards.push({
+      kind: "priority",
+      title: "Helpful feedback",
+      detail: "Past feedback says this memory has been useful in similar situations."
+    });
   }
   if ((chunk.scoreDetails.feedbackBoost ?? 0) < -0.04) {
     reasons.push("noisy feedback penalty");
+    cards.push({
+      kind: "warning",
+      title: "Noisy history",
+      detail: "This memory carries noisy feedback and is being held back in ranking."
+    });
   }
   if ((chunk.scoreDetails.relationBoost ?? 0) > 0.04 || (chunk.relationHits?.length ?? 0) > 0) {
     reasons.push("memory graph relation hit");
+    cards.push({
+      kind: "relation",
+      title: "Memory graph link",
+      detail: "Related files, symbols, tags, or decisions pulled this memory closer to the task."
+    });
   }
   if ((chunk.scoreDetails.rerank ?? 0) > 0.03 || (chunk.scoreDetails.rerankModel ?? 0) > 0.03) {
     reasons.push("rerank reinforcement");
+    cards.push({
+      kind: "rerank",
+      title: "Rerank reinforcement",
+      detail: "A later rerank step confirmed this result should stay near the top."
+    });
   }
 
   return {
     ...chunk,
-    explainReasons: reasons.slice(0, 4)
+    explainReasons: reasons.slice(0, 4),
+    explainCards: cards.slice(0, 4)
   };
 }
 
@@ -1305,6 +1385,89 @@ function buildTaskExplainSummary(input: {
     whyConflictWasSuppressed,
     whyTheseMemories,
     whyNotOthers
+  };
+}
+
+function buildTaskExplainPanel(input: {
+  selectedChunks: ChunkRecord[];
+  explainSummary: {
+    whyDeepWaveOpened: string[];
+    whyConflictWasSuppressed: string[];
+    whyTheseMemories: string[];
+    whyNotOthers: string[];
+  };
+  conflictGate: {
+    used: boolean;
+    subjects: string[];
+    canonicalPreferred: boolean;
+  };
+  adaptiveDeepWave: {
+    triggers: string[];
+  };
+  recentWaveUsed: boolean;
+  fallbackUsed: boolean;
+  stopReason: string;
+}): {
+  headline: string;
+  highlights: Array<{
+    kind: "match" | "priority" | "warning" | "relation" | "rerank";
+    title: string;
+    detail: string;
+  }>;
+  suppressions: Array<{
+    kind: "match" | "priority" | "warning" | "relation" | "rerank";
+    title: string;
+    detail: string;
+  }>;
+  nextActions: string[];
+} {
+  const topChunk = input.selectedChunks[0];
+  const headline = topChunk
+    ? `Top context came from ${topChunk.title ?? path.basename(topChunk.path)} because it best matched the task and gates.`
+    : "No strong context was selected for this task.";
+
+  const highlights = [
+    ...input.selectedChunks.flatMap((chunk) => chunk.explainCards ?? []),
+    ...(input.recentWaveUsed
+      ? [{
+          kind: "priority" as const,
+          title: "History wave opened",
+          detail: input.explainSummary.whyDeepWaveOpened[0] ?? "Historical context was pulled in for this task."
+        }]
+      : [])
+  ].slice(0, 5);
+
+  const suppressions = [
+    ...(input.conflictGate.used
+      ? [{
+          kind: "warning" as const,
+          title: input.conflictGate.canonicalPreferred ? "Conflict suppressed by canonical policy" : "Conflict suppressed by ranking gate",
+          detail: input.explainSummary.whyConflictWasSuppressed.join("; ")
+        }]
+      : []),
+    ...input.explainSummary.whyNotOthers.map((detail) => ({
+      kind: "warning" as const,
+      title: "Suppression",
+      detail
+    }))
+  ].slice(0, 4);
+
+  const nextActions: string[] = [];
+  if (input.conflictGate.used) {
+    nextActions.push("Review the active conflict cluster if the canonical policy still looks uncertain.");
+  }
+  if (input.adaptiveDeepWave.triggers.includes("history_hint") && !input.recentWaveUsed) {
+    nextActions.push("Try recall_deep if you still need older historical context.");
+  }
+  if (!input.fallbackUsed && input.stopReason.startsWith("confidence_stop_")) {
+    nextActions.push("If this context still feels thin, force a deeper lookup with recall_deep.");
+  }
+
+  return {
+    headline,
+    highlights,
+    suppressions,
+    nextActions: dedupeStrings(nextActions).slice(0, 3)
   };
 }
 

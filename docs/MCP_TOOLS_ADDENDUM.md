@@ -84,8 +84,10 @@ Recent responses can include:
 - `usedAdaptiveDeepWaveGate`
 - `deepWaveTriggers`
 - `explainSummary`
+- `explainPanel`
 - `explainReasons`
+- `explainCards`
 - `relationBoost`
 - `relationHits`
 
-These fields make it easier for IDE clients to show how recall was assembled and why one result outranked another.
+These fields make it easier for IDE clients to show how recall was assembled and why one result outranked another without rebuilding the explanation layer on the client side.
