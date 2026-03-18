@@ -129,6 +129,25 @@ server.tool(
 );
 
 server.tool(
+  "validate_profile_index",
+  "Validate whether the active embedding profile index is reusable, needs rebuilding, or needs profile-registry repair before cross-agent reuse.",
+  {
+    project_root: z.string().describe("Absolute path to the project root.")
+  },
+  async ({ project_root }) => {
+    const result = await service.validateProfileIndex(project_root);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "remember",
   "Store a durable manual memory, decision, diary entry, or imported note inside .mindkeeper and index it immediately.",
   {

@@ -7,6 +7,7 @@ import { RecallService } from "./app/recall-service.js";
 import { SessionService } from "./app/session-service.js";
 import { SourceService } from "./app/source-service.js";
 import { EmbeddingService } from "./embedding.js";
+import { validateActiveProfileIndex } from "./profile-registry.js";
 import { ensureProjectScaffold } from "./project.js";
 import type {
   ContextForTaskInput,
@@ -286,5 +287,9 @@ export class MindKeeperService {
     }
   ) {
     return this.canonicalService.exportCanonicalMemory(projectRoot, options);
+  }
+
+  async validateProfileIndex(projectRoot: string) {
+    return validateActiveProfileIndex(projectRoot);
   }
 }

@@ -17,6 +17,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
   Returns a read-only canonical summary across source kinds, memory tiers, branch views, and recent memory assets without touching vector internals.
 - `export_canonical_memory`
   Exports a canonical memory snapshot for backup or cross-agent reuse. It can include manual/decision/diary/imported content, while project file content stays opt-in.
+- `validate_profile_index`
+  Validates whether the active embedding profile index is reusable, needs rebuilding, or needs profile-registry repair before cross-agent reuse.
 
 ## New Governance Tools
 

@@ -40,6 +40,7 @@ test("status command returns the current module map and release-check command", 
   assert.equal(report.phaseStatus.crossAgentCompatibilityCanonicalContract, "done");
   assert.equal(report.phaseStatus.crossAgentCompatibilityAccessSurface, "done");
   assert.equal(report.phaseStatus.crossAgentCompatibilityCanonicalExport, "done");
+  assert.equal(report.phaseStatus.crossAgentCompatibilityProfileValidation, "done");
   assert.equal(report.commands.releaseCheck, "npm run verify && npm run bench:check && npm run bench:suite:check");
   assert.equal(report.keyModules.memoryWrite, "src/app/memory-write-service.ts");
   assert.ok(report.docs.includes("docs/CROSS_AGENT_COMPAT.md"));
@@ -48,6 +49,7 @@ test("status command returns the current module map and release-check command", 
   assert.equal(report.architecture.indexLayer, "active-profile-scaffolded-with-rebuild-guidance");
   assert.equal(report.architecture.accessSurface, "mcp-tool-and-canonical-entrypoints");
   assert.equal(report.architecture.canonicalExport, "safe-snapshot-without-vector-internals");
+  assert.equal(report.architecture.profileValidation, "explicit-reuse-rebuild-repair-guidance");
   assert.ok(report.tests.fileCount >= 1);
 });
 

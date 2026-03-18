@@ -293,6 +293,7 @@ Current state:
 - `inspect_memory_access_surface` now exposes the canonical contract paths, runtime rules, compatibility levels, and active-profile reuse guidance
 - external agents have one explicit MCP entrypoint instead of having to infer meaning from directory names
 - `inspect_canonical_memory` and `export_canonical_memory` now expose read-only and export-grade canonical views without forcing agents to read vector internals
+- `validate_profile_index` now gives operators a clean preflight for reuse, rebuild, or registry repair before they hand the project to another agent or switch embedding profiles
 
 ## Operational Rules
 

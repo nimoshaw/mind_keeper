@@ -76,6 +76,7 @@ Implemented today:
 - semi-automatic cleanup execution for safe hygiene actions like stale archive and noisy-source disabling
 - canonical-memory and active-profile index scaffolding for future cross-agent compatibility
 - active-profile reuse and rebuild guidance when the embedding profile changes
+- explicit profile-index validation before rebuild or cross-agent reuse
 - stable canonical contract descriptor for model-agnostic memory interoperability
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
@@ -172,6 +173,7 @@ Development-time MCP command:
 - `inspect_memory_access_surface`
 - `inspect_canonical_memory`
 - `export_canonical_memory`
+- `validate_profile_index`
 - `index_project`
 - `remember`
 - `remember_decision`

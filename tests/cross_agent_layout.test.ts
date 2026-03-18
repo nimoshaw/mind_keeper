@@ -6,7 +6,11 @@ import test from "node:test";
 import { inspectMemoryAccessSurface } from "../src/access-surface.js";
 import { writeConfig } from "../src/config.js";
 import { MindKeeperService } from "../src/mindkeeper.js";
-import { inspectActiveProfileIndex, inspectCanonicalMemoryContract } from "../src/profile-registry.js";
+import {
+  inspectActiveProfileIndex,
+  inspectCanonicalMemoryContract,
+  validateActiveProfileIndex
+} from "../src/profile-registry.js";
 import { ensureProjectScaffold } from "../src/project.js";
 
 test("project scaffold creates canonical and active-profile index metadata for future cross-agent compatibility", async () => {
@@ -248,6 +252,70 @@ test("canonical memory export excludes project content by default and can includ
     assert.equal(withProjectContent.items[0]?.sourceKind, "project");
     assert.equal(withProjectContent.items[0]?.contentIncluded, true);
     assert.ok((withProjectContent.items[0]?.content ?? "").includes("export function remember"));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile index validation reports a healthy active profile as reusable", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-validate-ready-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const reusable = true;\n", "utf8");
+
+  try {
+    await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+
+    const report = await validateActiveProfileIndex(projectRoot);
+    assert.equal(report.severity, "ok");
+    assert.equal(report.recommendedAction, "none");
+    assert.equal(report.activeProfileIndex?.status, "ready");
+    assert.equal(report.activeProfileIndex?.reusable, true);
+    assert.equal(report.configPresent, true);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile index validation recommends a rebuild after active profile drift", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-validate-drift-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const drift = true;\n", "utf8");
+
+  try {
+    const initialConfig = await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+    await writeConfig(projectRoot, {
+      ...initialConfig,
+      activeEmbeddingProfile: "embedding-cheap"
+    });
+
+    const report = await validateActiveProfileIndex(projectRoot);
+    assert.equal(report.severity, "error");
+    assert.equal(report.recommendedAction, "rebuild_active_profile_index");
+    assert.ok(report.issues.includes("manifest_profile_drift"));
+    assert.equal(report.activeProfileIndex?.profileName, "embedding-cheap");
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile index validation recommends repairing the registry when config is missing", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-validate-missing-config-"));
+
+  try {
+    const report = await validateActiveProfileIndex(projectRoot);
+    assert.equal(report.severity, "error");
+    assert.equal(report.recommendedAction, "repair_profile_registry");
+    assert.equal(report.activeProfileIndex, null);
+    assert.equal(report.configPresent, false);
+    assert.ok(report.issues.includes("missing_config"));
   } finally {
     await fs.rm(projectRoot, { recursive: true, force: true });
   }

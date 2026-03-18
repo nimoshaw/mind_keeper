@@ -23,6 +23,7 @@ This file is the clean status snapshot for the current build.
 - Cross-agent access surface: done
 - Canonical read-only inspection surface: done
 - Canonical export surface: done
+- Profile-index validation surface: done
 - Conflict-aware wave gating: done
 - Adaptive deep-wave triggering: done
 - Fast/deep recall split: done
@@ -71,6 +72,7 @@ For future maintainers, the main extension map lives in:
 - `inspect_memory_access_surface` now returns the recommended canonical entrypoints and active-profile reuse rules
 - `inspect_canonical_memory` now exposes a read-only summary of canonical memory by source kind, tier, branch, and recent activity
 - `export_canonical_memory` now emits a reusable canonical snapshot without exposing vector internals by default
+- `validate_profile_index` now tells operators whether the active profile is reusable, empty, drifted, or needs registry repair before rebuild
 - Thin facade entry at `src/mindkeeper.ts` with the real service implementation in `src/mindkeeper-facade.ts`
 - Durable memory writes extracted into `src/app/memory-write-service.ts`
 - Project indexing and document persistence extracted into `src/app/project-index-service.ts`

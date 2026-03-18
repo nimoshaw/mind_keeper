@@ -76,6 +76,22 @@ export interface ActiveProfileIndexState {
   reasons: string[];
 }
 
+export interface ProfileIndexValidationReport {
+  projectRoot: string;
+  activeProfileIndex: ActiveProfileIndexState | null;
+  severity: "ok" | "warn" | "error";
+  recommendedAction:
+    | "none"
+    | "index_project"
+    | "rebuild_active_profile_index"
+    | "repair_profile_registry";
+  summary: string;
+  issues: string[];
+  legacyVectorLayoutPresent: boolean;
+  descriptorPresent: boolean;
+  configPresent: boolean;
+}
+
 export interface MemoryAccessSurfaceReport {
   projectRoot: string;
   canonical: {

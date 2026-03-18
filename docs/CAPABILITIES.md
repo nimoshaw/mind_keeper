@@ -39,6 +39,7 @@ This file tracks what is already live in the current project and what still belo
 - Dedicated MCP access surface for canonical contract and active-profile compatibility state
 - Read-only canonical inspection summary across source kinds, tiers, branches, and recent memory assets
 - Canonical export snapshot for backup and cross-agent reuse without vector internals by default
+- Explicit profile-index validation for reuse, drift, and registry-repair guidance
 - Benchmark, smoke, and regression coverage
 
 ## Product Shape Today

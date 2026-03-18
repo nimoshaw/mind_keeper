@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { buildCanonicalMemoryContractDescriptor } from "./canonical-contract.js";
+import { loadConfig } from "./config.js";
 import { MindKeeperStorage } from "./storage.js";
 import type {
   ActiveProfileIndexState,
@@ -7,7 +8,8 @@ import type {
   CanonicalMemorySchemaDescriptor,
   EmbeddingProfile,
   EmbeddingProfileIndexDescriptor,
-  MindKeeperConfig
+  MindKeeperConfig,
+  ProfileIndexValidationReport
 } from "./types.js";
 import {
   CANONICAL_MEMORY_SCHEMA_VERSION,
@@ -17,6 +19,7 @@ import {
   canonicalRoot,
   canonicalSchemaPath,
   indexesRoot,
+  legacyVectorRoot,
   profileIndexDescriptorPath,
   profileIndexRoot
 } from "./storage-layout.js";
@@ -143,6 +146,71 @@ export async function inspectActiveProfileIndex(projectRoot: string, config: Min
   }
 }
 
+export async function validateActiveProfileIndex(projectRoot: string): Promise<ProfileIndexValidationReport> {
+  const config = await readProjectConfig(projectRoot);
+  const legacyVectorLayoutPresent = await hasDirectoryEntries(legacyVectorRoot(projectRoot));
+
+  if (!config) {
+    return {
+      projectRoot,
+      activeProfileIndex: null,
+      severity: "error",
+      recommendedAction: "repair_profile_registry",
+      summary: "Mind Keeper config is missing, so the active profile index cannot be validated safely.",
+      issues: ["missing_config"],
+      legacyVectorLayoutPresent,
+      descriptorPresent: false,
+      configPresent: false
+    };
+  }
+
+  const state = await inspectActiveProfileIndex(projectRoot, config);
+  const issues = [...state.reasons];
+
+  if (state.status === "ready" && state.reusable) {
+    return {
+      projectRoot,
+      activeProfileIndex: state,
+      severity: "ok",
+      recommendedAction: "none",
+      summary: "The active profile index is healthy and reusable for the current embedding profile.",
+      issues,
+      legacyVectorLayoutPresent,
+      descriptorPresent: state.descriptorPresent,
+      configPresent: true
+    };
+  }
+
+  if (state.status === "empty") {
+    const recommendedAction = state.descriptorPresent ? "index_project" : "repair_profile_registry";
+    return {
+      projectRoot,
+      activeProfileIndex: state,
+      severity: state.descriptorPresent ? "warn" : "error",
+      recommendedAction,
+      summary: state.descriptorPresent
+        ? "The active profile index is scaffolded but still empty. Index the project before relying on profile reuse."
+        : "The active profile descriptor is missing, so the profile registry should be repaired before indexing.",
+      issues,
+      legacyVectorLayoutPresent,
+      descriptorPresent: state.descriptorPresent,
+      configPresent: true
+    };
+  }
+
+  return {
+    projectRoot,
+    activeProfileIndex: state,
+    severity: "error",
+    recommendedAction: "rebuild_active_profile_index",
+    summary: "The active profile index no longer matches the current embedding profile contract and should be rebuilt.",
+    issues,
+    legacyVectorLayoutPresent,
+    descriptorPresent: state.descriptorPresent,
+    configPresent: true
+  };
+}
+
 async function writeJsonIfChanged(filePath: string, data: object): Promise<void> {
   const next = `${JSON.stringify(data, null, 2)}\n`;
 
@@ -168,5 +236,22 @@ async function readJsonDescriptor<T>(filePath: string): Promise<T | null> {
     return JSON.parse(raw) as T;
   } catch {
     return null;
+  }
+}
+
+async function readProjectConfig(projectRoot: string): Promise<MindKeeperConfig | null> {
+  try {
+    return await loadConfig(projectRoot);
+  } catch {
+    return null;
+  }
+}
+
+async function hasDirectoryEntries(directoryPath: string): Promise<boolean> {
+  try {
+    const entries = await fs.readdir(directoryPath);
+    return entries.length > 0;
+  } catch {
+    return false;
   }
 }
