@@ -222,6 +222,8 @@ The recommended handoff workflow between two work sessions is:
 4. then call `context_for_task`
 
 That gives Mind Keeper one lightweight "what was I doing and what should I do next" layer before deeper recall.
+In normal IDE usage, you do not have to remember to do this every time.
+`context_for_task` now also performs low-cost automatic flash updates on meaningful task-context calls, so the active handoff state can keep up without constant manual input.
 
 When switching embedding models or handing a project to another agent, use:
 
@@ -241,7 +243,7 @@ Recovery strategies:
 When recovery fails, the report now includes a stable `failure.code` plus `manualActions`.
 This is intended for IDE clients to show concrete next steps like reviewing `.mindkeeper/config.toml` or setting a missing API key environment variable.
 
-When you finish a work block, store one flash checkpoint.
+When you finish a work block, store one flash checkpoint if you want an explicit handoff.
 Good flash checkpoints are short and operational:
 
 - `session_goal`: what this session was trying to accomplish
@@ -275,7 +277,7 @@ Typical flash checkpoint payload:
 ```
 
 Next time you return, `flash_resume` returns the active checkpoint plus a ready-to-inject `resumePrompt`.
-`context_for_task` also reads a fresh flash checkpoint automatically and treats flash-touched files as related hints.
+`context_for_task` also reads a fresh flash checkpoint automatically, treats flash-touched files as related hints, and now refreshes auto flash state with low-cost JSON writes instead of heavy indexing or embedding work.
 
 Typical MCP server command:
 

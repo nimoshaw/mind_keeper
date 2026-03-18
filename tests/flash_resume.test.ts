@@ -109,3 +109,107 @@ test("context_for_task loads active flash context and uses flash touched files a
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("context_for_task auto-creates a low-cost flash checkpoint without manual input", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-auto-flash-"));
+  const srcDir = path.join(projectRoot, "src");
+  await fs.mkdir(srcDir, { recursive: true });
+
+  const memoryFile = path.join(srcDir, "memory.ts");
+  await fs.writeFile(
+    memoryFile,
+    [
+      "export function resumeMemoryWork() {",
+      "  return 'memory';",
+      "}"
+    ].join("\n"),
+    "utf8"
+  );
+
+  const service = new MindKeeperService();
+
+  try {
+    await service.indexProject(projectRoot, { force: true });
+    const firstContext = await service.contextForTask({
+      projectRoot,
+      task: "Continue the memory resume flow and verify the current symbol behavior",
+      currentFile: memoryFile,
+      currentSymbol: "resumeMemoryWork",
+      diagnostics: "TypeError in src/memory.ts: resumeMemoryWork should preserve the latest work state",
+      topK: 4
+    });
+
+    assert.equal(firstContext.gates.flash.loaded, false);
+
+    const resume = await service.flashResume(projectRoot);
+    assert.equal(resume.found, true);
+    assert.equal(resume.shouldInject, true);
+    assert.ok(resume.checkpoint?.tags.includes("auto"));
+    assert.ok(resume.checkpoint?.touchedFiles.some((item) => /src\/memory\.ts$/i.test(item)));
+    assert.ok(resume.resumePrompt?.includes("Continue the memory resume flow"));
+
+    const secondContext = await service.contextForTask({
+      projectRoot,
+      task: "Continue the memory resume flow and verify the current symbol behavior",
+      currentFile: memoryFile,
+      currentSymbol: "resumeMemoryWork",
+      diagnostics: "TypeError in src/memory.ts: resumeMemoryWork should preserve the latest work state",
+      topK: 4
+    });
+
+    assert.equal(secondContext.gates.flash.loaded, true);
+    assert.equal(secondContext.gates.usedFlashGate, true);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("auto flash does not churn the active checkpoint when the work state has not changed", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-auto-flash-stable-"));
+  const srcDir = path.join(projectRoot, "src");
+  await fs.mkdir(srcDir, { recursive: true });
+
+  const storageFile = path.join(srcDir, "storage.ts");
+  await fs.writeFile(
+    storageFile,
+    [
+      "export function stabilizeFlashState() {",
+      "  return 'stable';",
+      "}"
+    ].join("\n"),
+    "utf8"
+  );
+
+  const service = new MindKeeperService();
+
+  try {
+    await service.indexProject(projectRoot, { force: true });
+    await service.contextForTask({
+      projectRoot,
+      task: "Stabilize automatic flash resume behavior for storage work",
+      currentFile: storageFile,
+      currentSymbol: "stabilizeFlashState",
+      topK: 3
+    });
+
+    const firstResume = await service.flashResume(projectRoot);
+    assert.equal(firstResume.found, true);
+    const firstUpdatedAt = firstResume.checkpoint?.updatedAt ?? 0;
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    await service.contextForTask({
+      projectRoot,
+      task: "Stabilize automatic flash resume behavior for storage work",
+      currentFile: storageFile,
+      currentSymbol: "stabilizeFlashState",
+      topK: 3
+    });
+
+    const secondResume = await service.flashResume(projectRoot);
+    assert.equal(secondResume.found, true);
+    assert.equal(secondResume.checkpoint?.updatedAt, firstUpdatedAt);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});

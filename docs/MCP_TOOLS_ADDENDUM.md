@@ -19,6 +19,14 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 - `flash_clear`
   Clears the active flash checkpoint once that work state has been resumed or replaced.
 
+`context_for_task` now also refreshes auto flash state in the background on meaningful task-context calls.
+That auto path is intentionally lightweight:
+
+- no continuous recording
+- no per-keystroke updates
+- no default embedding work
+- no heavy vector rebuild
+
 ## New Compatibility Tool
 
 - `inspect_memory_access_surface`
@@ -83,27 +91,28 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 1. Use `context_for_task` during active coding.
 2. Use `recall_fast` when you want direct lookup without broad historical expansion.
 3. Use `recall_deep` when the question is explicitly historical.
-4. Before ending a work session, use `flash_checkpoint` so the next restart can reconnect the current goal, blockers, and next steps quickly.
-5. At the next restart, use `flash_resume` first, then call `context_for_task`.
-6. Run `review_memory_health` to see whether stale, noisy, or conflicting memories need cleanup first.
-7. Use `suggest_memory_cleanup` when you want one prioritized checklist instead of stitching several hygiene calls together.
-8. Use `apply_memory_cleanup_plan` when you want the safe cleanup actions to run automatically.
-9. Use `list_stale_decisions` when you specifically want to review aging decisions before they keep shaping recall.
-10. Periodically run `archive_stale_memories` to cool old diary/imported notes.
-11. Use `list_conflicts` to inspect raw opposing pairs.
-12. Use `list_conflict_clusters` to review the higher-level drift theme behind those pairs.
-13. Use `suggest_conflict_resolutions` when a conflict cluster should collapse into one canonical decision.
-14. Use `plan_conflict_resolutions` when you want a ready-to-run template for the actual resolution step.
-15. Use `validate_conflict_resolution_plan` before execution when you want a quick safety check.
-16. Use `execute_conflict_resolution_plan` after review when you are ready to publish the canonical decision and optionally disable the old ones.
-17. Use `mark_superseded` when you want to explicitly cool and disable older decisions under that canonical policy.
-18. Use `verify_conflict_resolution_execution` right after execution to confirm the canonical entry and superseded states are correct.
-19. Use `suggest_conflict_resolution_followup` to decide whether the old conflicting entries should be disabled, archived, or left as-is.
-20. Use `execute_conflict_resolution_followup` to carry out that cleanup action without manually stitching together extra hygiene calls.
-21. Use `suggest_consolidations` to find merge candidates before touching stored memories.
-22. Use `consolidate_memories` once you agree with one of the suggestions.
-23. During model switches or cross-agent handoff, call `recover_profile_index` instead of manually chaining repair/rebuild/index steps.
-24. Use `recover_profile_index` with `dry_run: true` when you want the IDE to preview the recovery path before touching project files.
+4. If you want an explicit handoff, use `flash_checkpoint` before ending a work session.
+5. Even without a manual checkpoint, `context_for_task` now maintains a low-cost auto flash checkpoint in the background.
+6. At the next restart, use `flash_resume` first, then call `context_for_task`.
+7. Run `review_memory_health` to see whether stale, noisy, or conflicting memories need cleanup first.
+8. Use `suggest_memory_cleanup` when you want one prioritized checklist instead of stitching several hygiene calls together.
+9. Use `apply_memory_cleanup_plan` when you want the safe cleanup actions to run automatically.
+10. Use `list_stale_decisions` when you specifically want to review aging decisions before they keep shaping recall.
+11. Periodically run `archive_stale_memories` to cool old diary/imported notes.
+12. Use `list_conflicts` to inspect raw opposing pairs.
+13. Use `list_conflict_clusters` to review the higher-level drift theme behind those pairs.
+14. Use `suggest_conflict_resolutions` when a conflict cluster should collapse into one canonical decision.
+15. Use `plan_conflict_resolutions` when you want a ready-to-run template for the actual resolution step.
+16. Use `validate_conflict_resolution_plan` before execution when you want a quick safety check.
+17. Use `execute_conflict_resolution_plan` after review when you are ready to publish the canonical decision and optionally disable the old ones.
+18. Use `mark_superseded` when you want to explicitly cool and disable older decisions under that canonical policy.
+19. Use `verify_conflict_resolution_execution` right after execution to confirm the canonical entry and superseded states are correct.
+20. Use `suggest_conflict_resolution_followup` to decide whether the old conflicting entries should be disabled, archived, or left as-is.
+21. Use `execute_conflict_resolution_followup` to carry out that cleanup action without manually stitching together extra hygiene calls.
+22. Use `suggest_consolidations` to find merge candidates before touching stored memories.
+23. Use `consolidate_memories` once you agree with one of the suggestions.
+24. During model switches or cross-agent handoff, call `recover_profile_index` instead of manually chaining repair/rebuild/index steps.
+25. Use `recover_profile_index` with `dry_run: true` when you want the IDE to preview the recovery path before touching project files.
 
 ## Explain Fields You Now See
 

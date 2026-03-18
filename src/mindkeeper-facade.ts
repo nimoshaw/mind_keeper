@@ -93,7 +93,30 @@ export class MindKeeperService {
   }
 
   async contextForTask(input: ContextForTaskInput) {
-    return this.recallService.contextForTask(input);
+    const result = await this.recallService.contextForTask(input);
+
+    try {
+      await this.flashService.observeTaskContext({
+        projectRoot: input.projectRoot,
+        task: input.task,
+        currentFile: input.currentFile,
+        currentSymbol: input.currentSymbol,
+        diagnostics: input.diagnostics,
+        branchName: result.gates.branchName,
+        relatedFiles: result.gates.relatedFiles,
+        selectedPaths: result.results.map((item) => item.path),
+        intentType: result.gates.intentType,
+        intentSubtype: result.gates.intentSubtype,
+        explainHeadline: result.gates.explainPanel.headline,
+        nextActions: result.gates.explainPanel.nextActions,
+        stopReason: result.gates.stopReason,
+        conflictSubjects: result.gates.conflictSummary.subjects
+      });
+    } catch {
+      // Auto flash is best-effort and should never block task-context retrieval.
+    }
+
+    return result;
   }
 
   async forget(input: ForgetInput) {
