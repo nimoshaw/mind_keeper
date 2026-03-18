@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
+import { embeddingMetricsCollector, type EmbeddingMetricsSnapshot } from "../src/embedding-metrics.js";
 import { MindKeeperService } from "../src/mindkeeper.js";
 import { extractSymbolSpans } from "../src/symbols.js";
 
@@ -19,6 +20,21 @@ type RetrievalBenchmark = {
   recallMs: number;
 };
 
+type VectorizationOperationBenchmark = {
+  durationMs: number;
+  embedding: EmbeddingMetricsSnapshot;
+};
+
+type VectorizationBenchmark = {
+  activeProfile: string;
+  operations: {
+    indexProject: VectorizationOperationBenchmark;
+    rememberDecision: VectorizationOperationBenchmark;
+    rebuildActiveProfileIndex: VectorizationOperationBenchmark;
+    recallQuery: VectorizationOperationBenchmark;
+  };
+};
+
 type ProjectBenchmark = {
   name?: string;
   projectRoot: string;
@@ -30,6 +46,7 @@ type ProjectBenchmark = {
   recallHits: number;
   indexMs: number;
   recallMs: number;
+  embedding?: EmbeddingMetricsSnapshot;
 };
 
 type ProjectBenchmarkFailure = {
@@ -67,6 +84,7 @@ type BenchmarkReport = {
   suiteProfile?: string;
   symbolBenchmarks: SymbolBenchmark[];
   retrievalBenchmark: RetrievalBenchmark;
+  vectorizationBenchmark?: VectorizationBenchmark;
   projectBenchmark?: ProjectBenchmark;
   projectBenchmarks?: ProjectBenchmarkResult[];
   projectBenchmarkSummary?: ProjectBenchmarkSummary;
@@ -157,7 +175,8 @@ async function main(): Promise<void> {
     ? normalizeProfileName(args.suiteProfile ?? path.basename(args.suitePath, path.extname(args.suitePath)))
     : undefined;
   const symbolBenchmarks = benchmarkSymbolExtraction();
-  const retrievalBenchmark = await benchmarkIndexAndRecall();
+  const retrievalRun = await benchmarkIndexAndRecall();
+  const retrievalBenchmark = retrievalRun.retrievalBenchmark;
   const projectBenchmark = args.projectRoot
     ? await benchmarkProjectTree(args.projectRoot, args.projectQuery ?? DEFAULT_PROJECT_QUERY)
     : undefined;
@@ -180,6 +199,7 @@ async function main(): Promise<void> {
     suiteProfile,
     symbolBenchmarks,
     retrievalBenchmark,
+    vectorizationBenchmark: retrievalRun.vectorizationBenchmark,
     projectBenchmark,
     projectBenchmarks,
     projectBenchmarkSummary: projectBenchmarks ? summarizeProjectBenchmarks(projectBenchmarks) : undefined,
@@ -302,7 +322,10 @@ function benchmarkSymbolExtraction(): SymbolBenchmark[] {
   });
 }
 
-async function benchmarkIndexAndRecall(): Promise<RetrievalBenchmark> {
+async function benchmarkIndexAndRecall(): Promise<{
+  retrievalBenchmark: RetrievalBenchmark;
+  vectorizationBenchmark: VectorizationBenchmark;
+}> {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-bench-project-"));
   const srcDir = path.join(projectRoot, "src");
   const docsDir = path.join(projectRoot, "docs");
@@ -350,10 +373,33 @@ async function benchmarkIndexAndRecall(): Promise<RetrievalBenchmark> {
   const service = new MindKeeperService();
 
   try {
+    embeddingMetricsCollector.setEnabled(true);
+
+    embeddingMetricsCollector.reset();
     const indexStarted = performance.now();
     const indexResult = await service.indexProject(projectRoot, { force: true });
     const indexMs = performance.now() - indexStarted;
+    const indexEmbedding = embeddingMetricsCollector.snapshot();
 
+    embeddingMetricsCollector.reset();
+    const rememberStarted = performance.now();
+    await service.rememberDecision({
+      projectRoot,
+      title: "Benchmark decision",
+      decision: "Prefer project-scoped memory indexing.",
+      rationale: "This creates one stable remembered document for vectorization baseline measurement.",
+      tags: ["benchmark", "decision"]
+    });
+    const rememberMs = performance.now() - rememberStarted;
+    const rememberEmbedding = embeddingMetricsCollector.snapshot();
+
+    embeddingMetricsCollector.reset();
+    const rebuildStarted = performance.now();
+    const rebuildReport = await service.rebuildActiveProfileIndex(projectRoot);
+    const rebuildMs = performance.now() - rebuildStarted;
+    const rebuildEmbedding = embeddingMetricsCollector.snapshot();
+
+    embeddingMetricsCollector.reset();
     const recallStarted = performance.now();
     const recallResults = await service.recall({
       projectRoot,
@@ -363,14 +409,40 @@ async function benchmarkIndexAndRecall(): Promise<RetrievalBenchmark> {
       explain: true
     });
     const recallMs = performance.now() - recallStarted;
+    const recallEmbedding = embeddingMetricsCollector.snapshot();
 
     return {
-      indexedFiles: indexResult.indexedFiles,
-      recallHits: recallResults.length,
-      indexMs: round2(indexMs),
-      recallMs: round2(recallMs)
+      retrievalBenchmark: {
+        indexedFiles: indexResult.indexedFiles,
+        recallHits: recallResults.length,
+        indexMs: round2(indexMs),
+        recallMs: round2(recallMs)
+      },
+      vectorizationBenchmark: {
+        activeProfile: rebuildReport.profileName,
+        operations: {
+          indexProject: {
+            durationMs: round2(indexMs),
+            embedding: indexEmbedding
+          },
+          rememberDecision: {
+            durationMs: round2(rememberMs),
+            embedding: rememberEmbedding
+          },
+          rebuildActiveProfileIndex: {
+            durationMs: round2(rebuildMs),
+            embedding: rebuildEmbedding
+          },
+          recallQuery: {
+            durationMs: round2(recallMs),
+            embedding: recallEmbedding
+          }
+        }
+      }
     };
   } finally {
+    embeddingMetricsCollector.reset();
+    embeddingMetricsCollector.setEnabled(false);
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 }
@@ -379,32 +451,41 @@ async function benchmarkProjectTree(projectRoot: string, query: string): Promise
   const resolvedRoot = path.resolve(process.cwd(), projectRoot);
   const service = new MindKeeperService();
 
-  const indexStarted = performance.now();
-  const indexResult = await service.indexProject(resolvedRoot, { force: true });
-  const indexMs = performance.now() - indexStarted;
+  embeddingMetricsCollector.setEnabled(true);
+  embeddingMetricsCollector.reset();
+  try {
+    const indexStarted = performance.now();
+    const indexResult = await service.indexProject(resolvedRoot, { force: true });
+    const indexMs = performance.now() - indexStarted;
 
-  const recallStarted = performance.now();
-  const recallResults = await service.recall({
-    projectRoot: resolvedRoot,
-    query,
-    topK: 8,
-    minScore: 0,
-    explain: false
-  });
-  const recallMs = performance.now() - recallStarted;
+    const recallStarted = performance.now();
+    const recallResults = await service.recall({
+      projectRoot: resolvedRoot,
+      query,
+      topK: 8,
+      minScore: 0,
+      explain: false
+    });
+    const recallMs = performance.now() - recallStarted;
+    const embedding = embeddingMetricsCollector.snapshot();
 
-  return {
-    name: path.basename(resolvedRoot),
-    projectRoot: resolvedRoot,
-    query,
-    indexedFiles: indexResult.indexedFiles,
-    skippedFiles: indexResult.skippedFiles,
-    unchangedFiles: indexResult.unchangedFiles,
-    removedFiles: indexResult.removedFiles,
-    recallHits: recallResults.length,
-    indexMs: round2(indexMs),
-    recallMs: round2(recallMs)
-  };
+    return {
+      name: path.basename(resolvedRoot),
+      projectRoot: resolvedRoot,
+      query,
+      indexedFiles: indexResult.indexedFiles,
+      skippedFiles: indexResult.skippedFiles,
+      unchangedFiles: indexResult.unchangedFiles,
+      removedFiles: indexResult.removedFiles,
+      recallHits: recallResults.length,
+      indexMs: round2(indexMs),
+      recallMs: round2(recallMs),
+      embedding
+    };
+  } finally {
+    embeddingMetricsCollector.reset();
+    embeddingMetricsCollector.setEnabled(false);
+  }
 }
 
 async function benchmarkProjectSuite(suitePath: string): Promise<ProjectBenchmarkResult[]> {

@@ -1,9 +1,16 @@
 import crypto from "node:crypto";
 import OpenAI from "openai";
+import { embeddingMetricsCollector } from "./embedding-metrics.js";
 import type { EmbeddingProfile } from "./types.js";
 
 export class EmbeddingService {
   async embed(profile: EmbeddingProfile, text: string): Promise<number[]> {
+    embeddingMetricsCollector.recordRequest({
+      profileName: profile.name,
+      profileKind: profile.kind,
+      texts: [text]
+    });
+
     if (profile.kind === "hash") {
       return hashEmbedding(text, profile.dimensions);
     }

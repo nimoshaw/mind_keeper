@@ -67,14 +67,32 @@ test("suite benchmark check compares against the same profile and exposes per-pr
     runBenchmark(benchmarkRoot, ["--suite", suitePath, "--out", path.join(tempRoot, "latest.json"), "--history-dir", historyDir]);
     const checked = runBenchmark(benchmarkRoot, ["--suite", suitePath, "--history-dir", historyDir, "--check-regressions"]) as {
       suiteProfile?: string;
+      vectorizationBenchmark?: {
+        operations?: {
+          indexProject?: {
+            embedding?: {
+              itemCount: number;
+              providerCallCount: number;
+            };
+          };
+        };
+      };
       comparison?: { suiteProjects?: Array<{ name: string; baselineIndexMs: number | null; baselineRecallMs: number | null }> };
+      projectBenchmarks?: Array<{
+        embedding?: {
+          itemCount: number;
+        };
+      }>;
     };
 
     assert.equal(checked.suiteProfile, "team.alpha");
+    assert.ok((checked.vectorizationBenchmark?.operations?.indexProject?.embedding?.itemCount ?? 0) >= 1);
+    assert.ok((checked.vectorizationBenchmark?.operations?.indexProject?.embedding?.providerCallCount ?? 0) >= 1);
     assert.ok(checked.comparison?.suiteProjects);
     assert.equal(checked.comparison?.suiteProjects?.[0]?.name, "repo-a");
     assert.ok(typeof checked.comparison?.suiteProjects?.[0]?.baselineIndexMs === "number");
     assert.ok(typeof checked.comparison?.suiteProjects?.[0]?.baselineRecallMs === "number");
+    assert.ok((checked.projectBenchmarks?.[0]?.embedding?.itemCount ?? 0) >= 1);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
