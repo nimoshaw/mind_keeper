@@ -216,6 +216,8 @@ async function main(): Promise<void> {
     const storage = new MindKeeperStorage(projectRoot);
     try {
       storage.setDocumentUpdatedAt(summary.docId, Date.now() - 90 * 24 * 60 * 60 * 1000);
+      storage.setDocumentUpdatedAt(sqliteYes.docId, Date.now() - 120 * 24 * 60 * 60 * 1000);
+      storage.setDocumentUpdatedAt(sqliteNo.docId, Date.now() - 120 * 24 * 60 * 60 * 1000);
     } finally {
       storage.close();
     }
@@ -237,6 +239,15 @@ async function main(): Promise<void> {
       })
     );
     assert.ok(memoryHealth.summary.conflictClusters >= 1);
+
+    const cleanupPlan = await timed("suggest_memory_cleanup", steps, async () =>
+      service.suggestMemoryCleanup({
+        projectRoot,
+        olderThanDays: 30,
+        topK: 5
+      })
+    );
+    assert.ok(cleanupPlan.actions.length >= 1);
 
     const conflicts = await timed("list_conflicts", steps, async () =>
       service.listConflicts({
@@ -316,6 +327,15 @@ async function main(): Promise<void> {
     );
     assert.ok(superseded.supersededCount >= 1);
 
+    const staleDecisions = await timed("list_stale_decisions", steps, async () =>
+      service.listStaleDecisions({
+        projectRoot,
+        olderThanDays: 30,
+        topK: 5
+      })
+    );
+    assert.ok(staleDecisions.length >= 1);
+
     const conflictFollowup = await timed("suggest_conflict_resolution_followup", steps, async () =>
       service.suggestConflictResolutionFollowup({
         projectRoot,
@@ -376,6 +396,7 @@ async function main(): Promise<void> {
         fastRecallHits: fastRecall.length,
         deepRecallHits: deepRecall.length,
         archivedCount: archived.archivedCount,
+        cleanupActionCount: cleanupPlan.actions.length,
         memoryHealthRecommendations: memoryHealth.recommendations.map((item) => item.action),
         conflictCount: conflicts.length,
         conflictClusterCount: conflictClusters.length,
@@ -384,6 +405,7 @@ async function main(): Promise<void> {
         conflictValidationWarnings: conflictValidation.warnings.length,
         executedConflictResolutionDocId: executedConflictResolution.docId,
         supersededMarkedCount: superseded.supersededCount,
+        staleDecisionCandidates: staleDecisions.length,
         conflictVerificationWarnings: conflictVerification.warnings.length,
         conflictFollowupAction: conflictFollowup.recommendedAction,
         executedConflictFollowupAction: executedConflictFollowup.action,

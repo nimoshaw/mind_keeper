@@ -70,6 +70,7 @@ Implemented today:
 - stale archive, conflict listing, and consolidation
 - project memory health review with stale/noisy/conflict cleanup recommendations
 - explicit superseded marking for older decisions after a canonical policy is published
+- stale decision review and cleanup planning for long-lived projects with evolving policies
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
 - conflict-resolution plans with ready-to-run consolidation templates
@@ -167,6 +168,8 @@ Development-time MCP command:
 - `enable_source`
 - `rate_source`
 - `archive_stale_memories`
+- `list_stale_decisions`
+- `suggest_memory_cleanup`
 - `list_conflicts`
 - `list_conflict_clusters`
 - `suggest_conflict_resolutions`

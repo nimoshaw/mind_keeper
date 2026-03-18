@@ -555,6 +555,60 @@ server.tool(
 );
 
 server.tool(
+  "list_stale_decisions",
+  "List older decision memories that now look stale, low-confidence, superseded, or conflict-prone.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    older_than_days: z.number().int().positive().max(3650).optional().describe("Treat decisions older than this many days as stale candidates."),
+    top_k: z.number().int().positive().max(50).optional().describe("Maximum number of stale decision candidates to return."),
+    include_disabled: z.boolean().optional().describe("Include disabled decision memories. Defaults to true."),
+    max_stability_score: z.number().min(0).max(1).optional().describe("Treat decisions at or below this stability score as stale-prone.")
+  },
+  async ({ project_root, older_than_days, top_k, include_disabled, max_stability_score }) => {
+    const result = await service.listStaleDecisions({
+      projectRoot: project_root,
+      olderThanDays: older_than_days,
+      topK: top_k,
+      includeDisabled: include_disabled,
+      maxStabilityScore: max_stability_score
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
+  "suggest_memory_cleanup",
+  "Combine memory health signals and stale decision review into one prioritized cleanup checklist.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    older_than_days: z.number().int().positive().max(3650).optional().describe("Treat memories older than this many days as stale candidates."),
+    top_k: z.number().int().positive().max(50).optional().describe("Maximum number of sample doc ids or subjects to include.")
+  },
+  async ({ project_root, older_than_days, top_k }) => {
+    const result = await service.suggestMemoryCleanup({
+      projectRoot: project_root,
+      olderThanDays: older_than_days,
+      topK: top_k
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "mark_superseded",
   "Mark older decision memories as superseded by a canonical decision so they cool down or disable immediately.",
   {

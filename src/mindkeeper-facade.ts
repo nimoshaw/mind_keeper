@@ -117,6 +117,24 @@ export class MindKeeperService {
     return this.hygieneService.reviewMemoryHealth(input);
   }
 
+  async listStaleDecisions(input: {
+    projectRoot: string;
+    olderThanDays?: number;
+    topK?: number;
+    includeDisabled?: boolean;
+    maxStabilityScore?: number;
+  }) {
+    return this.hygieneService.listStaleDecisions(input);
+  }
+
+  async suggestMemoryCleanup(input: {
+    projectRoot: string;
+    olderThanDays?: number;
+    topK?: number;
+  }) {
+    return this.hygieneService.suggestMemoryCleanup(input);
+  }
+
   async markSuperseded(input: {
     projectRoot: string;
     canonicalDocId: string;

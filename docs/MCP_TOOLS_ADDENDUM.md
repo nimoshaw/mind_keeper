@@ -13,6 +13,10 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 
 - `review_memory_health`
   Scans the current project memory store and summarizes the biggest cleanup hotspots, including stale diary/imported notes, noisy active memories, and active decision conflicts.
+- `list_stale_decisions`
+  Lists older decision memories that now look stale, superseded, low-confidence, disabled, or still conflict-prone.
+- `suggest_memory_cleanup`
+  Combines health review and stale decision review into one prioritized cleanup checklist.
 - `mark_superseded`
   Marks older decisions as superseded by a canonical decision, optionally disabling them and cooling them into the cold tier immediately.
 - `archive_stale_memories`
@@ -46,19 +50,21 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 2. Use `recall_fast` when you want direct lookup without broad historical expansion.
 3. Use `recall_deep` when the question is explicitly historical.
 4. Run `review_memory_health` to see whether stale, noisy, or conflicting memories need cleanup first.
-5. Periodically run `archive_stale_memories` to cool old diary/imported notes.
-6. Use `list_conflicts` to inspect raw opposing pairs.
-7. Use `list_conflict_clusters` to review the higher-level drift theme behind those pairs.
-8. Use `suggest_conflict_resolutions` when a conflict cluster should collapse into one canonical decision.
-9. Use `plan_conflict_resolutions` when you want a ready-to-run template for the actual resolution step.
-10. Use `validate_conflict_resolution_plan` before execution when you want a quick safety check.
-11. Use `execute_conflict_resolution_plan` after review when you are ready to publish the canonical decision and optionally disable the old ones.
-12. Use `mark_superseded` when you want to explicitly cool and disable older decisions under that canonical policy.
-13. Use `verify_conflict_resolution_execution` right after execution to confirm the canonical entry and superseded states are correct.
-14. Use `suggest_conflict_resolution_followup` to decide whether the old conflicting entries should be disabled, archived, or left as-is.
-15. Use `execute_conflict_resolution_followup` to carry out that cleanup action without manually stitching together extra hygiene calls.
-16. Use `suggest_consolidations` to find merge candidates before touching stored memories.
-17. Use `consolidate_memories` once you agree with one of the suggestions.
+5. Use `suggest_memory_cleanup` when you want one prioritized checklist instead of stitching several hygiene calls together.
+6. Use `list_stale_decisions` when you specifically want to review aging decisions before they keep shaping recall.
+7. Periodically run `archive_stale_memories` to cool old diary/imported notes.
+8. Use `list_conflicts` to inspect raw opposing pairs.
+9. Use `list_conflict_clusters` to review the higher-level drift theme behind those pairs.
+10. Use `suggest_conflict_resolutions` when a conflict cluster should collapse into one canonical decision.
+11. Use `plan_conflict_resolutions` when you want a ready-to-run template for the actual resolution step.
+12. Use `validate_conflict_resolution_plan` before execution when you want a quick safety check.
+13. Use `execute_conflict_resolution_plan` after review when you are ready to publish the canonical decision and optionally disable the old ones.
+14. Use `mark_superseded` when you want to explicitly cool and disable older decisions under that canonical policy.
+15. Use `verify_conflict_resolution_execution` right after execution to confirm the canonical entry and superseded states are correct.
+16. Use `suggest_conflict_resolution_followup` to decide whether the old conflicting entries should be disabled, archived, or left as-is.
+17. Use `execute_conflict_resolution_followup` to carry out that cleanup action without manually stitching together extra hygiene calls.
+18. Use `suggest_consolidations` to find merge candidates before touching stored memories.
+19. Use `consolidate_memories` once you agree with one of the suggestions.
 
 ## Explain Fields You Now See
 

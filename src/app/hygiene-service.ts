@@ -122,6 +122,212 @@ export class HygieneService {
     }
   }
 
+  async listStaleDecisions(input: {
+    projectRoot: string;
+    olderThanDays?: number;
+    topK?: number;
+    includeDisabled?: boolean;
+    maxStabilityScore?: number;
+  }): Promise<Array<{
+    docId: string;
+    title: string | null;
+    updatedAt: number;
+    ageDays: number;
+    isDisabled: boolean;
+    memoryTier: string | null;
+    stabilityScore: number | null;
+    helpfulVotes: number;
+    noisyVotes: number;
+    conflictSubjects: string[];
+    reasons: string[];
+    suggestedAction: "mark_superseded" | "review" | "keep_cold";
+  }>> {
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const olderThanDays = Math.max(1, input.olderThanDays ?? 60);
+      const maxStabilityScore = Math.max(0, Math.min(1, input.maxStabilityScore ?? 0.42));
+      const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+      const decisions = storage
+        .listSources()
+        .filter((item) => item.sourceKind === "decision")
+        .filter((item) => input.includeDisabled ?? true ? true : !item.isDisabled);
+      const contents = await buildContentsMap(decisions);
+      const conflictMap = buildDecisionConflictMap(buildConflictClusters(decisions, contents));
+
+      return decisions
+        .map((item) => {
+          const ageDays = Math.floor((Date.now() - item.updatedAt) / (1000 * 60 * 60 * 24));
+          const conflictSubjects = conflictMap.get(item.docId) ?? [];
+          const reasons: string[] = [];
+          const superseded = /superseded by canonical decision/i.test(item.distillReason ?? "");
+          const lowStability = (item.stabilityScore ?? 1) <= maxStabilityScore;
+
+          if (item.updatedAt <= cutoff) {
+            reasons.push(`older than ${olderThanDays} days`);
+          }
+          if (superseded) {
+            reasons.push("already marked as superseded by a canonical decision");
+          }
+          if (item.memoryTier === "cold") {
+            reasons.push("already cooled into the cold tier");
+          }
+          if (item.isDisabled) {
+            reasons.push("currently disabled from active recall");
+          }
+          if (lowStability) {
+            reasons.push(`stability score is at or below ${maxStabilityScore}`);
+          }
+          if (item.noisyVotes > item.helpfulVotes) {
+            reasons.push("has accumulated more noisy than helpful feedback");
+          }
+          if (conflictSubjects.length > 0) {
+            reasons.push(`still participates in ${conflictSubjects.length} conflict subject(s)`);
+          }
+
+          let suggestedAction: "mark_superseded" | "review" | "keep_cold" = "review";
+          if (superseded && item.memoryTier === "cold" && item.isDisabled) {
+            suggestedAction = "keep_cold";
+          } else if (conflictSubjects.length > 0 || (!superseded && item.isDisabled)) {
+            suggestedAction = "mark_superseded";
+          }
+
+          return {
+            docId: item.docId,
+            title: item.title,
+            updatedAt: item.updatedAt,
+            ageDays,
+            isDisabled: item.isDisabled,
+            memoryTier: item.memoryTier,
+            stabilityScore: item.stabilityScore,
+            helpfulVotes: item.helpfulVotes,
+            noisyVotes: item.noisyVotes,
+            conflictSubjects,
+            reasons,
+            suggestedAction,
+            stale:
+              item.updatedAt <= cutoff &&
+              (superseded ||
+                item.isDisabled ||
+                item.memoryTier === "cold" ||
+                lowStability ||
+                item.noisyVotes > item.helpfulVotes ||
+                conflictSubjects.length > 0)
+          };
+        })
+        .filter((item) => item.stale)
+        .sort((left, right) => {
+          const leftScore =
+            left.reasons.length +
+            left.conflictSubjects.length * 0.8 +
+            (left.suggestedAction === "mark_superseded" ? 0.6 : 0) +
+            (left.memoryTier === "cold" ? 0.2 : 0);
+          const rightScore =
+            right.reasons.length +
+            right.conflictSubjects.length * 0.8 +
+            (right.suggestedAction === "mark_superseded" ? 0.6 : 0) +
+            (right.memoryTier === "cold" ? 0.2 : 0);
+          return rightScore - leftScore || right.updatedAt - left.updatedAt;
+        })
+        .slice(0, input.topK ?? 8)
+        .map(({ stale: _stale, ...item }) => item);
+    } finally {
+      storage.close();
+    }
+  }
+
+  async suggestMemoryCleanup(input: {
+    projectRoot: string;
+    olderThanDays?: number;
+    topK?: number;
+  }): Promise<{
+    summary: {
+      recommendedActions: number;
+      staleDecisionCandidates: number;
+      healthHotspots: number;
+    };
+    actions: Array<{
+      action:
+        | "archive_stale_memories"
+        | "review_conflicts"
+        | "disable_noisy_sources"
+        | "mark_superseded"
+        | "review_stale_decisions"
+        | "healthy";
+      priority: "high" | "medium" | "low";
+      count: number;
+      reason: string;
+      docIds: string[];
+      subjects?: string[];
+    }>;
+  }> {
+    const health = await this.reviewMemoryHealth({
+      projectRoot: input.projectRoot,
+      olderThanDays: input.olderThanDays,
+      topK: input.topK
+    });
+    const staleDecisions = await this.listStaleDecisions({
+      projectRoot: input.projectRoot,
+      olderThanDays: input.olderThanDays,
+      topK: input.topK
+    });
+
+    const actions: Array<{
+      action:
+        | "archive_stale_memories"
+        | "review_conflicts"
+        | "disable_noisy_sources"
+        | "mark_superseded"
+        | "review_stale_decisions"
+        | "healthy";
+      priority: "high" | "medium" | "low";
+      count: number;
+      reason: string;
+      docIds: string[];
+      subjects?: string[];
+    }> = [...health.recommendations];
+
+    const supersedeCandidates = staleDecisions.filter((item) => item.suggestedAction === "mark_superseded");
+    if (supersedeCandidates.length > 0) {
+      actions.push({
+        action: "mark_superseded",
+        priority: supersedeCandidates.some((item) => item.conflictSubjects.length > 0) ? "high" : "medium",
+        count: supersedeCandidates.length,
+        reason: `${supersedeCandidates.length} older decision memories look stale enough to supersede under a canonical policy or review immediately.`,
+        docIds: supersedeCandidates.map((item) => item.docId),
+        subjects: Array.from(new Set(supersedeCandidates.flatMap((item) => item.conflictSubjects))).slice(0, input.topK ?? 8)
+      });
+    }
+
+    const reviewCandidates = staleDecisions.filter((item) => item.suggestedAction === "review");
+    if (reviewCandidates.length > 0) {
+      actions.push({
+        action: "review_stale_decisions",
+        priority: "medium",
+        count: reviewCandidates.length,
+        reason: `${reviewCandidates.length} older decision memories should be reviewed for current validity before they keep influencing recall.`,
+        docIds: reviewCandidates.map((item) => item.docId),
+        subjects: Array.from(new Set(reviewCandidates.flatMap((item) => item.conflictSubjects))).slice(0, input.topK ?? 8)
+      });
+    }
+
+    const deduped = dedupeCleanupActions(actions);
+    return {
+      summary: {
+        recommendedActions: deduped.length,
+        staleDecisionCandidates: staleDecisions.length,
+        healthHotspots: health.recommendations.filter((item) => item.action !== "healthy").length
+      },
+      actions: deduped.length > 0 ? deduped : [{
+        action: "healthy",
+        priority: "low",
+        count: 0,
+        reason: "No cleanup actions are recommended right now.",
+        docIds: []
+      }]
+    };
+  }
+
   async suggestConsolidations(input: {
     projectRoot: string;
     topK?: number;
@@ -1346,6 +1552,96 @@ function dedupeReasons(reasons: string[]): string[] {
     }
     seen.add(reason);
     output.push(reason);
+  }
+  return output;
+}
+
+function dedupeCleanupActions(actions: Array<{
+  action:
+    | "archive_stale_memories"
+    | "review_conflicts"
+    | "disable_noisy_sources"
+    | "mark_superseded"
+    | "review_stale_decisions"
+    | "healthy";
+  priority: "high" | "medium" | "low";
+  count: number;
+  reason: string;
+  docIds: string[];
+  subjects?: string[];
+}>): Array<{
+  action:
+    | "archive_stale_memories"
+    | "review_conflicts"
+    | "disable_noisy_sources"
+    | "mark_superseded"
+    | "review_stale_decisions"
+    | "healthy";
+  priority: "high" | "medium" | "low";
+  count: number;
+  reason: string;
+  docIds: string[];
+  subjects?: string[];
+}> {
+  const grouped = new Map<string, {
+    action:
+      | "archive_stale_memories"
+      | "review_conflicts"
+      | "disable_noisy_sources"
+      | "mark_superseded"
+      | "review_stale_decisions"
+      | "healthy";
+    priority: "high" | "medium" | "low";
+    count: number;
+    reason: string;
+    docIds: string[];
+    subjects?: string[];
+  }>();
+
+  for (const action of actions) {
+    const current = grouped.get(action.action);
+    if (!current) {
+      grouped.set(action.action, {
+        ...action,
+        docIds: Array.from(new Set(action.docIds)),
+        subjects: action.subjects ? Array.from(new Set(action.subjects)) : undefined
+      });
+      continue;
+    }
+
+    current.count = Math.max(current.count, action.count);
+    current.priority = maxPriority(current.priority, action.priority);
+    current.reason = current.reason.length >= action.reason.length ? current.reason : action.reason;
+    current.docIds = Array.from(new Set([...current.docIds, ...action.docIds]));
+    current.subjects = Array.from(new Set([...(current.subjects ?? []), ...(action.subjects ?? [])]));
+  }
+
+  return Array.from(grouped.values())
+    .sort((left, right) => priorityRank(right.priority) - priorityRank(left.priority) || right.count - left.count);
+}
+
+function maxPriority(left: "high" | "medium" | "low", right: "high" | "medium" | "low"): "high" | "medium" | "low" {
+  return priorityRank(left) >= priorityRank(right) ? left : right;
+}
+
+function priorityRank(priority: "high" | "medium" | "low"): number {
+  if (priority === "high") {
+    return 3;
+  }
+  if (priority === "medium") {
+    return 2;
+  }
+  return 1;
+}
+
+function buildDecisionConflictMap(clusters: ConflictCluster[]): Map<string, string[]> {
+  const output = new Map<string, string[]>();
+  for (const cluster of clusters) {
+    for (const docId of cluster.docIds) {
+      const current = output.get(docId) ?? [];
+      current.push(cluster.subject);
+      output.set(docId, Array.from(new Set(current)));
+    }
   }
   return output;
 }

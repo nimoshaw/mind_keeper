@@ -96,6 +96,137 @@ test("reviewMemoryHealth summarizes stale, noisy, and conflicting cleanup hotspo
   }
 });
 
+test("listStaleDecisions surfaces older superseded or conflict-prone decisions", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-stale-decisions-"));
+  const service = new MindKeeperService();
+
+  try {
+    const oldA = await service.rememberDecision({
+      projectRoot,
+      title: "Prefer sqlite manifests",
+      decision: "Prefer sqlite for manifests and project metadata.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage"]
+    });
+    const oldB = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use sqlite manifests",
+      decision: "Do not use sqlite for manifests and project metadata.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "conflict"]
+    });
+    const canonical = await service.rememberDecision({
+      projectRoot,
+      title: "Canonical sqlite manifests decision",
+      decision: "Use sqlite for manifests and project metadata as the canonical storage policy.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "canonical", "conflict-resolution"]
+    });
+
+    const storage = new MindKeeperStorage(projectRoot);
+    storage.setDocumentUpdatedAt(oldA.docId, Date.now() - 120 * 24 * 60 * 60 * 1000);
+    storage.setDocumentUpdatedAt(oldB.docId, Date.now() - 120 * 24 * 60 * 60 * 1000);
+    storage.updateDocumentMetadata({
+      docId: oldA.docId,
+      stabilityScore: 0.18
+    });
+    storage.updateDocumentMetadata({
+      docId: oldB.docId,
+      stabilityScore: 0.2
+    });
+    storage.close();
+
+    await service.markSuperseded({
+      projectRoot,
+      canonicalDocId: canonical.docId,
+      supersededDocIds: [oldA.docId, oldB.docId]
+    });
+
+    const stale = await service.listStaleDecisions({
+      projectRoot,
+      olderThanDays: 30,
+      topK: 5
+    });
+
+    assert.ok(stale.length >= 2);
+    const docIds = stale.map((item) => item.docId);
+    assert.ok(docIds.includes(oldA.docId));
+    assert.ok(docIds.includes(oldB.docId));
+    assert.ok(stale.some((item) => item.suggestedAction === "keep_cold" || item.suggestedAction === "mark_superseded"));
+    assert.ok(stale.every((item) => item.reasons.length > 0));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("suggestMemoryCleanup combines health hotspots and stale decisions into one cleanup plan", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-cleanup-plan-"));
+  const service = new MindKeeperService();
+
+  try {
+    const staleDiary = await service.remember({
+      projectRoot,
+      sourceKind: "diary",
+      title: "Old rollout diary",
+      content: "This is old rollout chatter that should be cooled down.",
+      tags: ["rollout", "history"]
+    });
+    const noisy = await service.remember({
+      projectRoot,
+      sourceKind: "manual",
+      title: "Noisy note",
+      content: "This note has become noisy and should not dominate retrieval.",
+      tags: ["noise"]
+    });
+    const oldDecision = await service.rememberDecision({
+      projectRoot,
+      title: "Temporary sqlite rollback",
+      decision: "Temporarily avoid sqlite during one short-lived experiment.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "temporary"]
+    });
+    const newDecision = await service.rememberDecision({
+      projectRoot,
+      title: "Canonical sqlite manifests decision",
+      decision: "Use sqlite for manifests and project metadata as the canonical storage policy.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "canonical", "conflict-resolution"]
+    });
+
+    await service.rateSource({ projectRoot, docId: noisy.docId, signal: "noisy" });
+    await service.rateSource({ projectRoot, docId: noisy.docId, signal: "noisy" });
+
+    const storage = new MindKeeperStorage(projectRoot);
+    storage.setDocumentUpdatedAt(staleDiary.docId, Date.now() - 90 * 24 * 60 * 60 * 1000);
+    storage.setDocumentUpdatedAt(oldDecision.docId, Date.now() - 90 * 24 * 60 * 60 * 1000);
+    storage.updateDocumentMetadata({
+      docId: oldDecision.docId,
+      stabilityScore: 0.2
+    });
+    storage.close();
+
+    await service.markSuperseded({
+      projectRoot,
+      canonicalDocId: newDecision.docId,
+      supersededDocIds: [oldDecision.docId]
+    });
+
+    const cleanup = await service.suggestMemoryCleanup({
+      projectRoot,
+      olderThanDays: 30,
+      topK: 5
+    });
+
+    assert.ok(cleanup.summary.recommendedActions >= 2);
+    assert.ok(cleanup.summary.staleDecisionCandidates >= 1);
+    assert.ok(cleanup.actions.some((item) => item.action === "archive_stale_memories"));
+    assert.ok(cleanup.actions.some((item) => item.action === "disable_noisy_sources"));
+    assert.ok(!cleanup.actions.some((item) => item.action === "healthy"));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("markSuperseded cools and disables superseded decisions under a canonical decision", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-mark-superseded-"));
   const service = new MindKeeperService();
