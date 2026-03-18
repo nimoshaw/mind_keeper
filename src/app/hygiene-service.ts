@@ -13,6 +13,115 @@ type HygieneRememberers = {
 export class HygieneService {
   constructor(private readonly rememberers: HygieneRememberers) {}
 
+  async reviewMemoryHealth(input: {
+    projectRoot: string;
+    olderThanDays?: number;
+    topK?: number;
+  }): Promise<{
+    summary: {
+      totalSources: number;
+      activeSources: number;
+      disabledSources: number;
+      coldSources: number;
+      staleCandidates: number;
+      noisyCandidates: number;
+      conflictClusters: number;
+    };
+    recommendations: Array<{
+      action: "archive_stale_memories" | "review_conflicts" | "disable_noisy_sources" | "healthy";
+      priority: "high" | "medium" | "low";
+      count: number;
+      reason: string;
+      docIds: string[];
+      subjects?: string[];
+    }>;
+  }> {
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const olderThanDays = Math.max(1, input.olderThanDays ?? 45);
+      const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+      const listed = storage.listSources();
+      const activeSources = listed.filter((item) => !item.isDisabled);
+      const coldSources = listed.filter((item) => item.memoryTier === "cold");
+      const staleCandidates = activeSources.filter((item) =>
+        (item.sourceKind === "diary" || item.sourceKind === "imported") && item.updatedAt <= cutoff
+      );
+      const noisyCandidates = activeSources.filter((item) =>
+        item.noisyVotes > item.helpfulVotes && item.sourceKind !== "project"
+      );
+      const decisions = listed.filter((item) => item.sourceKind === "decision");
+      const conflictClusters = buildConflictClusters(decisions, await buildContentsMap(decisions))
+        .sort((left, right) => right.score - left.score)
+        .slice(0, input.topK ?? 5);
+
+      const recommendations: Array<{
+        action: "archive_stale_memories" | "review_conflicts" | "disable_noisy_sources" | "healthy";
+        priority: "high" | "medium" | "low";
+        count: number;
+        reason: string;
+        docIds: string[];
+        subjects?: string[];
+      }> = [];
+
+      if (staleCandidates.length > 0) {
+        recommendations.push({
+          action: "archive_stale_memories",
+          priority: "medium",
+          count: staleCandidates.length,
+          reason: `${staleCandidates.length} diary/imported memories are older than ${olderThanDays} days and still active.`,
+          docIds: staleCandidates.slice(0, input.topK ?? 5).map((item) => item.docId)
+        });
+      }
+
+      if (noisyCandidates.length > 0) {
+        recommendations.push({
+          action: "disable_noisy_sources",
+          priority: noisyCandidates.length >= 3 ? "high" : "medium",
+          count: noisyCandidates.length,
+          reason: `${noisyCandidates.length} active memories have accumulated more noisy than helpful feedback.`,
+          docIds: noisyCandidates.slice(0, input.topK ?? 5).map((item) => item.docId)
+        });
+      }
+
+      if (conflictClusters.length > 0) {
+        recommendations.push({
+          action: "review_conflicts",
+          priority: "high",
+          count: conflictClusters.length,
+          reason: `${conflictClusters.length} decision conflict cluster(s) are still active and should be reviewed or consolidated.`,
+          docIds: conflictClusters.flatMap((item) => item.docIds).slice(0, Math.max(4, input.topK ?? 5)),
+          subjects: conflictClusters.map((item) => item.subject)
+        });
+      }
+
+      if (recommendations.length === 0) {
+        recommendations.push({
+          action: "healthy",
+          priority: "low",
+          count: 0,
+          reason: "No stale, noisy, or conflicting memory hotspots need immediate cleanup.",
+          docIds: []
+        });
+      }
+
+      return {
+        summary: {
+          totalSources: listed.length,
+          activeSources: activeSources.length,
+          disabledSources: listed.filter((item) => item.isDisabled).length,
+          coldSources: coldSources.length,
+          staleCandidates: staleCandidates.length,
+          noisyCandidates: noisyCandidates.length,
+          conflictClusters: conflictClusters.length
+        },
+        recommendations
+      };
+    } finally {
+      storage.close();
+    }
+  }
+
   async suggestConsolidations(input: {
     projectRoot: string;
     topK?: number;

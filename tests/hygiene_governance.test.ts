@@ -38,6 +38,64 @@ test("archiveStaleMemories moves stale diary notes into the cold tier", async ()
   }
 });
 
+test("reviewMemoryHealth summarizes stale, noisy, and conflicting cleanup hotspots", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-health-review-"));
+  const service = new MindKeeperService();
+
+  try {
+    const staleDiary = await service.remember({
+      projectRoot,
+      sourceKind: "diary",
+      title: "Old retrieval diary",
+      content: "An old retrieval experiment that should cool down over time.",
+      tags: ["retrieval", "history"]
+    });
+    const noisy = await service.remember({
+      projectRoot,
+      sourceKind: "manual",
+      title: "Noisy retrieval note",
+      content: "This note keeps getting marked noisy in review.",
+      tags: ["retrieval", "noisy"]
+    });
+    await service.rateSource({ projectRoot, docId: noisy.docId, signal: "noisy" });
+    await service.rateSource({ projectRoot, docId: noisy.docId, signal: "noisy" });
+
+    await service.rememberDecision({
+      projectRoot,
+      title: "Prefer sqlite manifests",
+      decision: "Prefer sqlite for manifests and project metadata.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage"]
+    });
+    await service.rememberDecision({
+      projectRoot,
+      title: "Do not use sqlite manifests",
+      decision: "Do not use sqlite for manifests and project metadata.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "conflict"]
+    });
+
+    const storage = new MindKeeperStorage(projectRoot);
+    storage.setDocumentUpdatedAt(staleDiary.docId, Date.now() - 90 * 24 * 60 * 60 * 1000);
+    storage.close();
+
+    const review = await service.reviewMemoryHealth({
+      projectRoot,
+      olderThanDays: 30,
+      topK: 5
+    });
+
+    assert.ok(review.summary.staleCandidates >= 1);
+    assert.ok(review.summary.noisyCandidates >= 1);
+    assert.ok(review.summary.conflictClusters >= 1);
+    assert.ok(review.recommendations.some((item) => item.action === "archive_stale_memories"));
+    assert.ok(review.recommendations.some((item) => item.action === "disable_noisy_sources"));
+    assert.ok(review.recommendations.some((item) => item.action === "review_conflicts"));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("listConflicts detects opposing decisions on the same subject", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflicts-"));
   const service = new MindKeeperService();

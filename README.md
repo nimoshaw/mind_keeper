@@ -68,6 +68,7 @@ Implemented today:
 - fast recall and deep recall entry points
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation
+- project memory health review with stale/noisy/conflict cleanup recommendations
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
 - conflict-resolution plans with ready-to-run consolidation templates

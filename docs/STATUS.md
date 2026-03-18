@@ -20,6 +20,7 @@ This file is the clean status snapshot for the current build.
 - Fast/deep recall split: done
 - Lightweight graph boosts: done
 - Long-term hygiene baseline: done
+- Memory health review: done
 - Productization docs and release checks: done
 - Suggestion-driven consolidation scanning: done
 - Subject-level conflict clustering: done
@@ -67,6 +68,7 @@ For future maintainers, the main extension map lives in:
 - `recall_fast` and `recall_deep`
 - Relation-aware rerank using lightweight graph edges
 - Governance tools for stale archive, conflict listing, conflict clustering, and memory consolidation
+- Governance tools now include a memory health review that prioritizes stale, noisy, and conflicting cleanup work
 - Governance tools now bridge conflict clusters into resolution suggestions before consolidation
 - Governance tools now expose executable resolution plans before consolidation
 - Governance tools can now publish one canonical decision from a reviewed resolution plan

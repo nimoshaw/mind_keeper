@@ -229,6 +229,15 @@ async function main(): Promise<void> {
     );
     assert.ok(archived.docIds.includes(summary.docId));
 
+    const memoryHealth = await timed("review_memory_health", steps, async () =>
+      service.reviewMemoryHealth({
+        projectRoot,
+        olderThanDays: 30,
+        topK: 5
+      })
+    );
+    assert.ok(memoryHealth.summary.conflictClusters >= 1);
+
     const conflicts = await timed("list_conflicts", steps, async () =>
       service.listConflicts({
         projectRoot,
@@ -358,6 +367,7 @@ async function main(): Promise<void> {
         fastRecallHits: fastRecall.length,
         deepRecallHits: deepRecall.length,
         archivedCount: archived.archivedCount,
+        memoryHealthRecommendations: memoryHealth.recommendations.map((item) => item.action),
         conflictCount: conflicts.length,
         conflictClusterCount: conflictClusters.length,
         conflictResolutionCount: conflictResolutions.length,

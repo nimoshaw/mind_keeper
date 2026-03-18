@@ -109,6 +109,14 @@ export class MindKeeperService {
     return this.hygieneService.archiveStaleMemories(input);
   }
 
+  async reviewMemoryHealth(input: {
+    projectRoot: string;
+    olderThanDays?: number;
+    topK?: number;
+  }) {
+    return this.hygieneService.reviewMemoryHealth(input);
+  }
+
   async listConflicts(input: {
     projectRoot: string;
     topK?: number;

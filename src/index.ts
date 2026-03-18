@@ -530,6 +530,31 @@ server.tool(
 );
 
 server.tool(
+  "review_memory_health",
+  "Inspect stale, noisy, cold, and conflicting memories and return the most urgent cleanup recommendations for this project.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    older_than_days: z.number().int().positive().max(3650).optional().describe("Treat diary/imported memories older than this as stale candidates."),
+    top_k: z.number().int().positive().max(20).optional().describe("Limit the number of sample doc ids and conflict subjects to include.")
+  },
+  async ({ project_root, older_than_days, top_k }) => {
+    const result = await service.reviewMemoryHealth({
+      projectRoot: project_root,
+      olderThanDays: older_than_days,
+      topK: top_k
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "list_conflicts",
   "Detect likely conflicts between stored decision memories so teams can reconcile outdated or opposing guidance.",
   {
