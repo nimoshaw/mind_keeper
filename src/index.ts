@@ -101,6 +101,34 @@ server.tool(
 );
 
 server.tool(
+  "export_canonical_memory",
+  "Export a canonical memory snapshot without vector internals so other agents or backup flows can reuse the project memory asset layer.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    source_kinds: z.array(z.enum(["manual", "decision", "diary", "project", "imported"])).optional().describe("Optional source kinds to export."),
+    include_content: z.boolean().optional().describe("Include source file content when possible. Project file content stays excluded unless include_project_content is also true."),
+    include_project_content: z.boolean().optional().describe("Allow project source files to include raw content in the export."),
+    limit: z.number().int().positive().max(5000).optional().describe("Optional max number of canonical entries to export, newest first.")
+  },
+  async ({ project_root, source_kinds, include_content, include_project_content, limit }) => {
+    const result = await service.exportCanonicalMemory(project_root, {
+      sourceKinds: source_kinds,
+      includeContent: include_content,
+      includeProjectContent: include_project_content,
+      limit
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "remember",
   "Store a durable manual memory, decision, diary entry, or imported note inside .mindkeeper and index it immediately.",
   {

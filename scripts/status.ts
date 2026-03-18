@@ -30,6 +30,7 @@ async function main(): Promise<void> {
       crossAgentCompatibilityProfileIdentity: "done",
       crossAgentCompatibilityCanonicalContract: "done",
       crossAgentCompatibilityAccessSurface: "done",
+      crossAgentCompatibilityCanonicalExport: "done",
       releaseProductization: "done"
     },
     commands: {
@@ -63,6 +64,7 @@ async function main(): Promise<void> {
       canonicalContract: "stable-model-agnostic-descriptor",
       indexLayer: "active-profile-scaffolded-with-rebuild-guidance",
       accessSurface: "mcp-tool-and-canonical-entrypoints",
+      canonicalExport: "safe-snapshot-without-vector-internals",
       runtimeProfileMode: "single-active-profile",
       currentCompatibilityTrack: "storage-boundary-refinement"
     },

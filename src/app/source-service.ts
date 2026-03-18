@@ -140,6 +140,11 @@ export class SourceService {
     relativePath: string | null;
     sourceKind: string;
     title: string | null;
+    tags: string[];
+    moduleName: string | null;
+    symbol: string | null;
+    branchName: string | null;
+    checksum: string | null;
     chunkCount: number;
     updatedAt: number;
     isDisabled: boolean;

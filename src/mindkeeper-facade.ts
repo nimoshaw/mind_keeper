@@ -275,4 +275,16 @@ export class MindKeeperService {
   async inspectCanonicalMemory(projectRoot: string, options?: { recentLimit?: number }) {
     return this.canonicalService.inspectCanonicalMemory(projectRoot, options);
   }
+
+  async exportCanonicalMemory(
+    projectRoot: string,
+    options?: {
+      sourceKinds?: Array<"manual" | "decision" | "diary" | "project" | "imported">;
+      includeContent?: boolean;
+      includeProjectContent?: boolean;
+      limit?: number;
+    }
+  ) {
+    return this.canonicalService.exportCanonicalMemory(projectRoot, options);
+  }
 }

@@ -139,6 +139,46 @@ export interface CanonicalMemoryInspectionReport {
   }>;
 }
 
+export interface CanonicalMemoryExportItem {
+  docId: string;
+  sourceKind: MemorySourceKind;
+  title: string | null;
+  path: string;
+  relativePath: string | null;
+  tags: string[];
+  moduleName: string | null;
+  symbol: string | null;
+  branchName: string | null;
+  contentHash: string | null;
+  memoryTier: MemoryTier | null;
+  stabilityScore: number | null;
+  distillConfidence: number | null;
+  distillReason: string | null;
+  updatedAt: number;
+  disabled: boolean;
+  disabledReason: string | null;
+  helpfulVotes: number;
+  noisyVotes: number;
+  supersededBy: string | null;
+  conflictSubjects: string[];
+  contentIncluded: boolean;
+  content: string | null;
+}
+
+export interface CanonicalMemoryExportReport {
+  projectRoot: string;
+  exportedAt: number;
+  schemaVersion: number | null;
+  contractFieldCount: number | null;
+  totalExported: number;
+  filters: {
+    sourceKinds: MemorySourceKind[] | null;
+    includeContent: boolean;
+    includeProjectContent: boolean;
+  };
+  items: CanonicalMemoryExportItem[];
+}
+
 export interface EmbeddingProfile {
   name: string;
   kind: EmbeddingProfileKind;

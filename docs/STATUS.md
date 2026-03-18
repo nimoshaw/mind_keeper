@@ -22,6 +22,7 @@ This file is the clean status snapshot for the current build.
 - Cross-agent canonical contract: done
 - Cross-agent access surface: done
 - Canonical read-only inspection surface: done
+- Canonical export surface: done
 - Conflict-aware wave gating: done
 - Adaptive deep-wave triggering: done
 - Fast/deep recall split: done
@@ -69,6 +70,7 @@ For future maintainers, the main extension map lives in:
 - `.mindkeeper/canonical/contract.json` now exposes a stable model-agnostic field contract for external readers
 - `inspect_memory_access_surface` now returns the recommended canonical entrypoints and active-profile reuse rules
 - `inspect_canonical_memory` now exposes a read-only summary of canonical memory by source kind, tier, branch, and recent activity
+- `export_canonical_memory` now emits a reusable canonical snapshot without exposing vector internals by default
 - Thin facade entry at `src/mindkeeper.ts` with the real service implementation in `src/mindkeeper-facade.ts`
 - Durable memory writes extracted into `src/app/memory-write-service.ts`
 - Project indexing and document persistence extracted into `src/app/project-index-service.ts`

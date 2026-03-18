@@ -58,6 +58,11 @@ export interface MemorySourceRecord {
   relativePath: string | null;
   sourceKind: MemorySourceKind;
   title: string | null;
+  tags: string[];
+  moduleName: string | null;
+  symbol: string | null;
+  branchName: string | null;
+  checksum: string | null;
   chunkCount: number;
   updatedAt: number;
   isDisabled: boolean;
@@ -673,6 +678,11 @@ export class MindKeeperStorage {
         fm.relative_path,
         c.source_kind,
         MAX(c.title) AS title,
+        MAX(c.tags_json) AS tags_json,
+        MAX(c.module_name) AS module_name,
+        MAX(c.symbol) AS symbol,
+        MAX(c.branch_name) AS branch_name,
+        MAX(c.checksum) AS checksum,
         COUNT(*) AS chunk_count,
         MAX(c.updated_at) AS updated_at,
         ds.disabled_at AS disabled_at,
@@ -698,6 +708,11 @@ export class MindKeeperStorage {
       relative_path: string | null;
       source_kind: string;
       title: string | null;
+      tags_json: string | null;
+      module_name: string | null;
+      symbol: string | null;
+      branch_name: string | null;
+      checksum: string | null;
       chunk_count: number;
       updated_at: number;
       disabled_at: number | null;
@@ -715,6 +730,11 @@ export class MindKeeperStorage {
       relativePath: row.relative_path,
       sourceKind: row.source_kind as MemorySourceKind,
       title: row.title,
+      tags: row.tags_json ? (JSON.parse(row.tags_json) as string[]) : [],
+      moduleName: row.module_name,
+      symbol: row.symbol,
+      branchName: row.branch_name,
+      checksum: row.checksum,
       chunkCount: row.chunk_count,
       updatedAt: row.updated_at,
       isDisabled: row.disabled_at !== null,

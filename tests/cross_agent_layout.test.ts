@@ -195,3 +195,60 @@ test("canonical memory inspection summarizes source kinds, tiers, branches, and 
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("canonical memory export excludes project content by default and can include manual content safely", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-canonical-export-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+  const filePath = path.join(srcDir, "memory.ts");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(
+    filePath,
+    [
+      "export function remember(text: string) {",
+      "  return text;",
+      "}"
+    ].join("\n"),
+    "utf8"
+  );
+
+  try {
+    await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+    await service.remember({
+      projectRoot,
+      content: "Canonical export manual note content.",
+      sourceKind: "manual",
+      title: "Exportable manual note",
+      tags: ["export"]
+    });
+
+    const withoutProjectContent = await service.exportCanonicalMemory(projectRoot, {
+      includeContent: true,
+      limit: 10
+    });
+    const projectItem = withoutProjectContent.items.find((item) => item.sourceKind === "project");
+    const manualItem = withoutProjectContent.items.find((item) => item.sourceKind === "manual");
+
+    assert.ok(projectItem);
+    assert.equal(projectItem?.contentIncluded, false);
+    assert.equal(projectItem?.content, null);
+    assert.ok(manualItem);
+    assert.equal(manualItem?.contentIncluded, true);
+    assert.equal(manualItem?.content, "Canonical export manual note content.");
+
+    const withProjectContent = await service.exportCanonicalMemory(projectRoot, {
+      includeContent: true,
+      includeProjectContent: true,
+      sourceKinds: ["project"],
+      limit: 10
+    });
+    assert.equal(withProjectContent.items.length, 1);
+    assert.equal(withProjectContent.items[0]?.sourceKind, "project");
+    assert.equal(withProjectContent.items[0]?.contentIncluded, true);
+    assert.ok((withProjectContent.items[0]?.content ?? "").includes("export function remember"));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
