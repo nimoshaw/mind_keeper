@@ -34,6 +34,7 @@ This file tracks what is already live in the current project and what still belo
 - Executable follow-up cleanup actions after canonical decision execution
 - Consolidation suggestion scanning for related memories
 - Canonical-memory plus active-profile index scaffolding for future cross-agent compatibility
+- Active-profile index reuse versus rebuild guidance when profile metadata or manifest ownership drifts
 - Benchmark, smoke, and regression coverage
 
 ## Product Shape Today

@@ -258,6 +258,12 @@ Make index ownership explicit:
 
 This gives the system a stable answer to "can I reuse this index?"
 
+Current state:
+
+- active profile identity is scaffolded on disk
+- bootstrap/status flows can now report whether the current profile index is reusable or should be rebuilt
+- manifest ownership drift is treated as rebuild guidance instead of silent ambiguity
+
 ### Phase C: Canonical Contract
 
 Define and document the schema that should survive:

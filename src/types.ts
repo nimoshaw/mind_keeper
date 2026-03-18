@@ -37,6 +37,20 @@ export interface EmbeddingProfileIndexDescriptor {
   compatibilityMode: "reuse_same_profile_only";
 }
 
+export interface ActiveProfileIndexState {
+  profileName: string;
+  profileKind: EmbeddingProfileKind;
+  dimensions: number;
+  model: string | null;
+  descriptorPath: string;
+  descriptorPresent: boolean;
+  status: "empty" | "ready" | "rebuild_required";
+  reusable: boolean;
+  totalManifestCount: number;
+  activeProfileManifestCount: number;
+  reasons: string[];
+}
+
 export interface EmbeddingProfile {
   name: string;
   kind: EmbeddingProfileKind;

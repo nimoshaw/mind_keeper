@@ -653,6 +653,18 @@ export class MindKeeperStorage {
     }));
   }
 
+  countManifests(): number {
+    const stmt = this.db.prepare("SELECT COUNT(*) AS count FROM file_manifests");
+    const row = stmt.get() as { count: number };
+    return row.count;
+  }
+
+  countManifestsForEmbeddingProfile(profileName: string): number {
+    const stmt = this.db.prepare("SELECT COUNT(*) AS count FROM file_manifests WHERE embedding_profile = ?");
+    const row = stmt.get(profileName) as { count: number };
+    return row.count;
+  }
+
   listSources(): MemorySourceRecord[] {
     const stmt = this.db.prepare(`
       SELECT

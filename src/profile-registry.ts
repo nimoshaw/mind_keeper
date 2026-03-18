@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
+import { MindKeeperStorage } from "./storage.js";
 import type {
+  ActiveProfileIndexState,
   CanonicalMemorySchemaDescriptor,
   EmbeddingProfile,
   EmbeddingProfileIndexDescriptor,
@@ -64,6 +66,75 @@ export async function ensureProfileRegistryScaffold(projectRoot: string, config:
   );
 }
 
+export async function inspectActiveProfileIndex(projectRoot: string, config: MindKeeperConfig): Promise<ActiveProfileIndexState> {
+  const activeProfile = resolveActiveEmbeddingProfile(config);
+  const descriptorPath = profileIndexDescriptorPath(projectRoot, activeProfile.name);
+  const descriptor = await readProfileDescriptor(descriptorPath);
+  const reasons: string[] = [];
+
+  if (!descriptor) {
+    reasons.push("missing_descriptor");
+  } else {
+    if (descriptor.profileName !== activeProfile.name) {
+      reasons.push("descriptor_profile_mismatch");
+    }
+    if (descriptor.profileKind !== activeProfile.kind) {
+      reasons.push("descriptor_kind_mismatch");
+    }
+    if (descriptor.dimensions !== activeProfile.dimensions) {
+      reasons.push("descriptor_dimension_mismatch");
+    }
+    if ((descriptor.model ?? null) !== (activeProfile.model ?? null)) {
+      reasons.push("descriptor_model_mismatch");
+    }
+    if ((descriptor.baseUrl ?? null) !== (activeProfile.baseUrl ?? null)) {
+      reasons.push("descriptor_base_url_mismatch");
+    }
+  }
+
+  const storage = new MindKeeperStorage(projectRoot);
+  try {
+    const totalManifestCount = storage.countManifests();
+    const activeProfileManifestCount = storage.countManifestsForEmbeddingProfile(activeProfile.name);
+
+    if (totalManifestCount === 0) {
+      return {
+        profileName: activeProfile.name,
+        profileKind: activeProfile.kind,
+        dimensions: activeProfile.dimensions,
+        model: activeProfile.model ?? null,
+        descriptorPath,
+        descriptorPresent: Boolean(descriptor),
+        status: "empty",
+        reusable: false,
+        totalManifestCount,
+        activeProfileManifestCount,
+        reasons
+      };
+    }
+
+    if (activeProfileManifestCount < totalManifestCount) {
+      reasons.push("manifest_profile_drift");
+    }
+
+    return {
+      profileName: activeProfile.name,
+      profileKind: activeProfile.kind,
+      dimensions: activeProfile.dimensions,
+      model: activeProfile.model ?? null,
+      descriptorPath,
+      descriptorPresent: Boolean(descriptor),
+      status: reasons.length === 0 ? "ready" : "rebuild_required",
+      reusable: reasons.length === 0,
+      totalManifestCount,
+      activeProfileManifestCount,
+      reasons
+    };
+  } finally {
+    storage.close();
+  }
+}
+
 async function writeJsonIfChanged(filePath: string, data: object): Promise<void> {
   const next = `${JSON.stringify(data, null, 2)}\n`;
 
@@ -77,4 +148,13 @@ async function writeJsonIfChanged(filePath: string, data: object): Promise<void>
   }
 
   await fs.writeFile(filePath, next, "utf8");
+}
+
+async function readProfileDescriptor(filePath: string): Promise<EmbeddingProfileIndexDescriptor | null> {
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    return JSON.parse(raw) as EmbeddingProfileIndexDescriptor;
+  } catch {
+    return null;
+  }
 }

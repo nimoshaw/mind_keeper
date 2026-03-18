@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { inspectActiveProfileIndex } from "./profile-registry.js";
 import { ensureProjectScaffold } from "./project.js";
 import { MindKeeperService } from "./mindkeeper.js";
 import type { MemorySourceKind } from "./types.js";
@@ -20,6 +21,7 @@ server.tool(
   },
   async ({ project_root }) => {
     const config = await ensureProjectScaffold(project_root);
+    const indexState = await inspectActiveProfileIndex(project_root, config);
     return {
       content: [
         {
@@ -29,7 +31,15 @@ server.tool(
               projectName: config.projectName,
               activeEmbeddingProfile: config.activeEmbeddingProfile,
               activeRerankerProfile: config.activeRerankerProfile,
-              directories: [".mindkeeper/knowledge", ".mindkeeper/diary", ".mindkeeper/decisions", ".mindkeeper/vector"]
+              directories: [
+                ".mindkeeper/knowledge",
+                ".mindkeeper/diary",
+                ".mindkeeper/decisions",
+                ".mindkeeper/canonical",
+                `.mindkeeper/indexes/${config.activeEmbeddingProfile}`,
+                ".mindkeeper/vector"
+              ],
+              indexState
             },
             null,
             2

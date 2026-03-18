@@ -36,10 +36,12 @@ test("status command returns the current module map and release-check command", 
   assert.equal(report.status, "ready-for-release-check");
   assert.equal(report.phaseStatus.releaseProductization, "done");
   assert.equal(report.phaseStatus.crossAgentCompatibilityDocs, "done");
+  assert.equal(report.phaseStatus.crossAgentCompatibilityProfileIdentity, "done");
   assert.equal(report.commands.releaseCheck, "npm run verify && npm run bench:check && npm run bench:suite:check");
   assert.equal(report.keyModules.memoryWrite, "src/app/memory-write-service.ts");
   assert.ok(report.docs.includes("docs/CROSS_AGENT_COMPAT.md"));
   assert.equal(report.architecture.runtimeProfileMode, "single-active-profile");
+  assert.equal(report.architecture.indexLayer, "active-profile-scaffolded-with-rebuild-guidance");
   assert.ok(report.tests.fileCount >= 1);
 });
 
