@@ -380,16 +380,16 @@ Current completed work:
 - embedding baseline metrics have been added
 - a first batch-capable embedding path now exists
 - `project-index-service` now uses batch embedding for chunk-heavy indexing work
-
-Still not done:
-
-- central embedding broker
-- debounce scheduler
-- remote-provider failure isolation per batch item
-- idle release and prewarm policy
-
-Newly completed since the initial draft:
-
 - a project-local SQLite embedding cache now reuses remote vectors by profile identity and normalized content hash
 - repeated recall or re-index work can now short-circuit provider calls when the text is already known under the same profile
 - regression coverage now includes persistent cache reuse and cross-profile cache isolation
+- `EmbeddingBatchBroker` now has idle release that clears unused profile queues after a configurable quiet period (default 120 seconds)
+- `EmbeddingBatchBroker` now supports graceful `shutdown()` that flushes all pending items and awaits in-flight work before resolving
+- `VectorizationScheduler` now provides debounce-based aggregation with configurable time windows (default 500ms, max 1200ms), token-budget-aware immediate flush, in-window dedup, and graceful shutdown
+- regression coverage now includes scheduler window aggregation, threshold flush, dedup, and shutdown safety
+
+Still not done:
+
+- scheduler integration as a default wrapper around `project-index-service` and `memory-write-service` (currently available as an opt-in layer)
+- in-memory LRU hot cache with TTL (the persistent SQLite cache already handles reuse; an in-memory layer is a future optimization)
+

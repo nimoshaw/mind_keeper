@@ -99,6 +99,14 @@ class EmbeddingMetricsCollector {
     this.cacheMisses += count;
   }
 
+  recordProviderCalls(count = 1): void {
+    if (!this.enabled || count <= 0) {
+      return;
+    }
+
+    this.providerCallCount += count;
+  }
+
   snapshot(): EmbeddingMetricsSnapshot {
     const uniqueTextCount = this.textHashes.size;
     const duplicateTextCount = Math.max(0, this.itemCount - uniqueTextCount);

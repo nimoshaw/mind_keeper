@@ -127,6 +127,32 @@ The codebase has already been split into focused services instead of one giant f
 
 This split is already good enough for handoff and incremental maintenance.
 
+## Vectorization Pipeline
+
+The embedding execution path is organized as a layered pipeline.
+
+### EmbeddingBatchBroker
+
+[src/app/embedding-batch-broker.ts](/D:/projects/mind_keeper/src/app/embedding-batch-broker.ts)
+
+Receives embedding requests from multiple callers, merges them into token-aware batches, executes bounded concurrent flushes, preserves result ordering, and isolates failures per batch.
+
+After a configurable quiet period (default 120 seconds), the broker clears idle profile queues to free resources. On shutdown, all pending items are flushed and awaited before the process exits.
+
+### EmbeddingCache
+
+[src/app/embedding-cache.ts](/D:/projects/mind_keeper/src/app/embedding-cache.ts)
+
+Reuses vectors for identical normalized text under the same active profile. Backed by a SQLite table (`embedding_cache`) keyed by `(profile_key, content_hash)`. This reduces redundant provider calls during rebuilds, repeated indexing, and repeated recall queries.
+
+### VectorizationScheduler
+
+[src/app/vectorization-scheduler.ts](/D:/projects/mind_keeper/src/app/vectorization-scheduler.ts)
+
+Provides debounce-based aggregation windows on top of the broker. Short bursts of embedding requests are collected within a configurable time window, with immediate flush when token budget or item count thresholds are reached. Callers receive promises that resolve when the aggregated batch completes.
+
+The scheduler is available as an opt-in layer. Callers can always fall back to direct `embedBatch` if the scheduler is not needed.
+
 ## Write Path
 
 There are two major write paths.

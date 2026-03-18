@@ -127,6 +127,8 @@ For future maintainers, the main extension map lives in:
 - Win11 portable `exe` packaging with launcher self-check
 - Win11 installer build script with explicit Inno Setup preflight
 - VCP-inspired vectorization pipeline study and migration plan documented for the next performance phase, with batch embedding plus persistent cache already landed
+- Vectorization batch broker with token-aware batching, bounded concurrency, failure isolation, idle release, and shutdown safety: done
+- Vectorization scheduler with debounce aggregation, token-budget flush, and dedup: done
 
 ## What `verify` Covers Directly
 

@@ -163,7 +163,7 @@ These are not emergencies, but they should be visible during handoff.
 - no HTTP transport yet
 - remote workspace indexing story is still incomplete
 - deeper recall tuning should now be feedback-driven instead of architecture-driven
-- the VCP-inspired vectorization broker is still planned, but the persistent profile-scoped embedding cache is already implemented
+- the VCP-inspired vectorization broker, scheduler, persistent cache, and idle release are all implemented; integration as a default wrapper is available but opt-in
 
 ## Files To Read First
 

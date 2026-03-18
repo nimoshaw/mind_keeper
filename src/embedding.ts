@@ -1,12 +1,8 @@
 import crypto from "node:crypto";
-import OpenAI from "openai";
+import { buildEmbeddingProfileCacheKey, sharedEmbeddingBatchBroker } from "./app/embedding-batch-broker.js";
 import { EmbeddingCacheService, embeddingCacheHash } from "./app/embedding-cache.js";
 import { embeddingMetricsCollector } from "./embedding-metrics.js";
 import type { EmbeddingProfile } from "./types.js";
-
-const DEFAULT_BATCH_MAX_ITEMS = 64;
-const DEFAULT_BATCH_MAX_ESTIMATED_TOKENS = 6_000;
-const DEFAULT_BATCH_CONCURRENCY = 4;
 
 export class EmbeddingService {
   private readonly embeddingCacheService = new EmbeddingCacheService();
@@ -68,99 +64,48 @@ export class EmbeddingService {
     embeddingMetricsCollector.recordCacheMiss(missedItemCount);
 
     const missingItems = [...misses.values()].map((item) => item.text);
-    const batches = createEmbeddingBatches(missingItems);
     embeddingMetricsCollector.recordRequest({
       profileName: profile.name,
       profileKind: profile.kind,
       texts,
-      providerCallCount: batches.length
+      providerCallCount: 0
     });
 
     if (missingItems.length === 0) {
       return ensureEmbeddingResults(profile, results);
     }
 
-    if (!profile.model || !profile.baseUrl || !profile.apiKeyEnv) {
-      throw new Error(`Embedding profile "${profile.name}" is missing model/baseUrl/apiKeyEnv.`);
-    }
-    const model = profile.model;
+    const remoteVectors = await sharedEmbeddingBatchBroker.embedBatch(profile, missingItems);
+    const cacheEntries: Array<{ text: string; embedding: number[] }> = [];
+    remoteVectors.forEach((vector, index) => {
+      const miss = missingItems[index];
+      const contentHash = embeddingCacheHash(miss);
+      const grouped = misses.get(contentHash);
+      if (!grouped) {
+        return;
+      }
 
-    const apiKey = process.env[profile.apiKeyEnv];
-    if (!apiKey) {
-      throw new Error(`Environment variable ${profile.apiKeyEnv} is required for embedding profile "${profile.name}".`);
-    }
-
-    const client = new OpenAI({
-      apiKey,
-      baseURL: profile.baseUrl
+      for (const originalIndex of grouped.indexes) {
+        results[originalIndex] = vector;
+      }
+      cacheEntries.push({
+        text: grouped.text,
+        embedding: vector
+      });
     });
 
-    await runWithConcurrency(
-      batches,
-      getBatchConcurrency(),
-      async (batch) => {
-        const response = await client.embeddings.create({
-          model,
-          input: batch.items.map((item) => item.text)
-        });
-
-        const vectors = response.data
-          .slice()
-          .sort((left, right) => left.index - right.index)
-          .map((item) => item.embedding);
-
-        if (vectors.length !== batch.items.length) {
-          throw new Error(
-            `Embedding profile "${profile.name}" returned ${vectors.length} vectors for ${batch.items.length} inputs.`
-          );
-        }
-
-        const cacheEntries: Array<{ text: string; embedding: number[] }> = [];
-        batch.items.forEach((item, index) => {
-          const vector = vectors[index];
-          if (!vector || vector.length === 0) {
-            throw new Error(`Embedding profile "${profile.name}" returned an empty vector.`);
-          }
-
-          const miss = missingItems[item.originalIndex];
-          const contentHash = embeddingCacheHash(miss);
-          const grouped = misses.get(contentHash);
-          if (!grouped) {
-            return;
-          }
-
-          for (const originalIndex of grouped.indexes) {
-            results[originalIndex] = vector;
-          }
-          cacheEntries.push({
-            text: grouped.text,
-            embedding: vector
-          });
-        });
-
-        if (options?.projectRoot && cacheEntries.length > 0) {
-          this.embeddingCacheService.setMany(options.projectRoot, {
-            profileKey,
-            profileName: profile.name,
-            dimensions: profile.dimensions,
-            entries: cacheEntries
-          });
-        }
-      }
-    );
+    if (options?.projectRoot && cacheEntries.length > 0) {
+      this.embeddingCacheService.setMany(options.projectRoot, {
+        profileKey,
+        profileName: profile.name,
+        dimensions: profile.dimensions,
+        entries: cacheEntries
+      });
+    }
 
     return ensureEmbeddingResults(profile, results);
   }
 }
-
-type EmbeddingBatch = {
-  items: Array<{
-    originalIndex: number;
-    text: string;
-    estimatedTokens: number;
-  }>;
-  estimatedTokens: number;
-};
 
 function hashEmbedding(text: string, dimensions: number): number[] {
   const output = new Array<number>(dimensions).fill(0);
@@ -202,94 +147,6 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return sum;
 }
 
-function createEmbeddingBatches(texts: string[]): EmbeddingBatch[] {
-  const batches: EmbeddingBatch[] = [];
-  let current: EmbeddingBatch = {
-    items: [],
-    estimatedTokens: 0
-  };
-
-  for (let index = 0; index < texts.length; index += 1) {
-    const text = texts[index];
-    const estimatedTokens = estimateEmbeddingTokens(text);
-    const wouldOverflowByItems = current.items.length >= getBatchMaxItems();
-    const wouldOverflowByTokens =
-      current.items.length > 0 && current.estimatedTokens + estimatedTokens > getBatchMaxEstimatedTokens();
-
-    if (wouldOverflowByItems || wouldOverflowByTokens) {
-      batches.push(current);
-      current = {
-        items: [],
-        estimatedTokens: 0
-      };
-    }
-
-    current.items.push({
-      originalIndex: index,
-      text,
-      estimatedTokens
-    });
-    current.estimatedTokens += estimatedTokens;
-  }
-
-  if (current.items.length > 0) {
-    batches.push(current);
-  }
-
-  return batches;
-}
-
-async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>): Promise<void> {
-  const safeConcurrency = Math.max(1, Math.min(concurrency, items.length || 1));
-  let cursor = 0;
-
-  const runners = new Array(safeConcurrency).fill(null).map(async () => {
-    while (true) {
-      const currentIndex = cursor;
-      cursor += 1;
-      if (currentIndex >= items.length) {
-        return;
-      }
-
-      await worker(items[currentIndex]);
-    }
-  });
-
-  await Promise.all(runners);
-}
-
-function estimateEmbeddingTokens(text: string): number {
-  if (text.length === 0) {
-    return 1;
-  }
-  return Math.max(1, Math.ceil(text.length / 4));
-}
-
-function getBatchMaxItems(): number {
-  return parsePositiveInt(process.env.MIND_KEEPER_EMBED_BATCH_MAX_ITEMS, DEFAULT_BATCH_MAX_ITEMS);
-}
-
-function getBatchMaxEstimatedTokens(): number {
-  return parsePositiveInt(
-    process.env.MIND_KEEPER_EMBED_BATCH_MAX_ESTIMATED_TOKENS,
-    DEFAULT_BATCH_MAX_ESTIMATED_TOKENS
-  );
-}
-
-function getBatchConcurrency(): number {
-  return parsePositiveInt(process.env.MIND_KEEPER_EMBED_BATCH_CONCURRENCY, DEFAULT_BATCH_CONCURRENCY);
-}
-
-function buildEmbeddingProfileCacheKey(profile: EmbeddingProfile): string {
-  return [
-    profile.name,
-    profile.kind,
-    profile.model ?? "",
-    profile.baseUrl ?? "",
-    String(profile.dimensions)
-  ].join("|");
-}
-
 function ensureEmbeddingResults(profile: EmbeddingProfile, results: Array<number[] | undefined>): number[][] {
   return results.map((vector) => {
     if (!vector || vector.length === 0) {
@@ -297,12 +154,4 @@ function ensureEmbeddingResults(profile: EmbeddingProfile, results: Array<number
     }
     return vector;
   });
-}
-
-function parsePositiveInt(input: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(input ?? "", 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return fallback;
-  }
-  return parsed;
 }
