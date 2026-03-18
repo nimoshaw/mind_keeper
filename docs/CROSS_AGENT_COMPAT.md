@@ -288,6 +288,11 @@ Only after the layers are clear should Mind Keeper expose stronger compatibility
 - documented on-disk schema
 - optional index reuse checks
 
+Current state:
+
+- `inspect_memory_access_surface` now exposes the canonical contract paths, runtime rules, compatibility levels, and active-profile reuse guidance
+- external agents have one explicit MCP entrypoint instead of having to infer meaning from directory names
+
 ## Operational Rules
 
 To keep the system efficient:

@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { inspectMemoryAccessSurface } from "../src/access-surface.js";
 import { writeConfig } from "../src/config.js";
 import { MindKeeperService } from "../src/mindkeeper.js";
 import { inspectActiveProfileIndex, inspectCanonicalMemoryContract } from "../src/profile-registry.js";
@@ -112,6 +113,31 @@ test("canonical memory contract can be inspected as a stable model-agnostic sche
     assert.equal(contract?.canonicalFiles.contractPath, ".mindkeeper/canonical/contract.json");
     assert.ok(contract?.governanceSignals.includes("superseded"));
     assert.ok(contract?.fields.some((field) => field.name === "conflictSubjects"));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("memory access surface exposes canonical paths, active profile state, and safe compatibility rules", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-access-surface-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const remembered = true;\n", "utf8");
+
+  try {
+    await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+
+    const report = await inspectMemoryAccessSurface(projectRoot);
+    assert.equal(report.runtimeRules.profileMode, "single_active_profile");
+    assert.equal(report.runtimeRules.sharedLayer, "canonical_memory");
+    assert.ok(report.canonical.contractPath.endsWith(path.join(".mindkeeper", "canonical", "contract.json")));
+    assert.ok((report.canonical.contractFieldCount ?? 0) > 5);
+    assert.equal(report.activeProfileIndex.status, "ready");
+    assert.ok(report.compatibilityLevels.some((level) => level.level === "different_agent_different_profile" && level.indexReuse === false));
+    assert.ok(report.recommendedAccess.primary.includes("inspect_memory_access_surface"));
   } finally {
     await fs.rm(projectRoot, { recursive: true, force: true });
   }

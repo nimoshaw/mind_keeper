@@ -60,6 +60,25 @@ server.tool(
 );
 
 server.tool(
+  "inspect_memory_access_surface",
+  "Describe the canonical memory contract, the active profile index state, and the safe cross-agent access rules for a project.",
+  {
+    project_root: z.string().describe("Absolute path to the project root.")
+  },
+  async ({ project_root }) => {
+    const result = await service.inspectMemoryAccessSurface(project_root);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "remember",
   "Store a durable manual memory, decision, diary entry, or imported note inside .mindkeeper and index it immediately.",
   {

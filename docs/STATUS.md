@@ -20,6 +20,7 @@ This file is the clean status snapshot for the current build.
 - Cross-agent compatibility foundation: scaffolded
 - Cross-agent profile identity and rebuild guidance: done
 - Cross-agent canonical contract: done
+- Cross-agent access surface: done
 - Conflict-aware wave gating: done
 - Adaptive deep-wave triggering: done
 - Fast/deep recall split: done
@@ -65,6 +66,7 @@ For future maintainers, the main extension map lives in:
 - `.mindkeeper/canonical/schema.json` and `.mindkeeper/indexes/<active-profile>/profile.json` scaffolding for future cross-agent compatibility
 - bootstrap and status surfaces can now explain whether the active profile index is reusable or should be rebuilt
 - `.mindkeeper/canonical/contract.json` now exposes a stable model-agnostic field contract for external readers
+- `inspect_memory_access_surface` now returns the recommended canonical entrypoints and active-profile reuse rules
 - Thin facade entry at `src/mindkeeper.ts` with the real service implementation in `src/mindkeeper-facade.ts`
 - Durable memory writes extracted into `src/app/memory-write-service.ts`
 - Project indexing and document persistence extracted into `src/app/project-index-service.ts`

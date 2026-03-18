@@ -169,6 +169,7 @@ Development-time MCP command:
 ## Most Important Tools
 
 - `bootstrap_project`
+- `inspect_memory_access_surface`
 - `index_project`
 - `remember`
 - `remember_decision`

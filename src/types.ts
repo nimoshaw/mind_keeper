@@ -76,6 +76,34 @@ export interface ActiveProfileIndexState {
   reasons: string[];
 }
 
+export interface MemoryAccessSurfaceReport {
+  projectRoot: string;
+  canonical: {
+    root: string;
+    schemaPath: string;
+    contractPath: string;
+    schemaVersion: number | null;
+    contractFieldCount: number | null;
+    governanceSignals: string[];
+  };
+  activeProfileIndex: ActiveProfileIndexState;
+  runtimeRules: {
+    profileMode: "single_active_profile";
+    vectorOwnership: "profile_specific";
+    sharedLayer: "canonical_memory";
+  };
+  compatibilityLevels: Array<{
+    level: "same_agent_same_profile" | "different_agent_same_profile" | "different_agent_different_profile";
+    canonicalReuse: boolean;
+    indexReuse: boolean;
+    note: string;
+  }>;
+  recommendedAccess: {
+    primary: Array<"inspect_memory_access_surface" | "list_sources" | "recall" | "context_for_task">;
+    externalReadersShouldAvoid: Array<"reading_profile_vectors_as_truth" | "runtime_multi_profile_queries" | "guessing_schema_from_directory_names">;
+  };
+}
+
 export interface EmbeddingProfile {
   name: string;
   kind: EmbeddingProfileKind;

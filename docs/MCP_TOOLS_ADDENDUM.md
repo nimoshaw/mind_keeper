@@ -9,6 +9,11 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 - `recall_deep`
   Use this when you explicitly want broader history, including diary and imported notes.
 
+## New Compatibility Tool
+
+- `inspect_memory_access_surface`
+  Returns the model-agnostic canonical contract paths, the active embedding profile reuse/rebuild state, and the safe cross-agent access rules for the current project.
+
 ## New Governance Tools
 
 - `review_memory_health`

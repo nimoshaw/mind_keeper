@@ -1,4 +1,5 @@
 import { HygieneService } from "./app/hygiene-service.js";
+import { inspectMemoryAccessSurface } from "./access-surface.js";
 import { MemoryWriteService } from "./app/memory-write-service.js";
 import { ProjectIndexService } from "./app/project-index-service.js";
 import { RecallService } from "./app/recall-service.js";
@@ -263,5 +264,9 @@ export class MindKeeperService {
 
   async indexProject(projectRoot: string, options?: { force?: boolean }): Promise<IndexProjectResult> {
     return this.projectIndexService.indexProject(projectRoot, options);
+  }
+
+  async inspectMemoryAccessSurface(projectRoot: string) {
+    return inspectMemoryAccessSurface(projectRoot);
   }
 }

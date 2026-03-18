@@ -36,6 +36,7 @@ This file tracks what is already live in the current project and what still belo
 - Canonical-memory plus active-profile index scaffolding for future cross-agent compatibility
 - Active-profile index reuse versus rebuild guidance when profile metadata or manifest ownership drifts
 - Stable canonical contract descriptor that external agents can read without interpreting vector internals
+- Dedicated MCP access surface for canonical contract and active-profile compatibility state
 - Benchmark, smoke, and regression coverage
 
 ## Product Shape Today
