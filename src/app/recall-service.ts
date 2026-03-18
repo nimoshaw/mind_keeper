@@ -250,7 +250,12 @@ export class RecallService {
       memoryMesh: {
         seedDocIds: string[];
         expandedDocIds: string[];
+        firstHopDocIds: string[];
+        secondHopDocIds: string[];
         expansionHits: string[];
+        expansionDepth: 0 | 1 | 2;
+        usedSecondHop: boolean;
+        reason: string;
       };
       knowledgeReserve: number;
       projectReserve: number;
@@ -396,22 +401,64 @@ export class RecallService {
     const meshSeedDocIds = selectMeshSeedDocIds(stableResults);
     const meshStorage = new MindKeeperStorage(input.projectRoot);
     let meshCandidates: ChunkRecord[] = [];
+    let firstHopDocIds: string[] = [];
+    let secondHopDocIds: string[] = [];
+    let meshDepth: 0 | 1 | 2 = 0;
+    let meshReason = "mesh stayed closed because no strong stable seed was available";
     try {
       const meshMatches = meshStorage.getRelatedDocumentMatches({
         seedDocIds: meshSeedDocIds,
         limit: Math.max(4, localWave.budget),
-        allowedEdgeTypes: ["module", "symbol", "tag", "path"]
+        allowedEdgeTypes: ["module", "symbol", "tag", "branch"]
       });
-      meshCandidates = meshMatches.size > 0
-        ? meshStorage
+      if (meshMatches.size > 0) {
+        meshCandidates = meshStorage
           .fetchCandidates({
             sourceKinds: ["manual", "decision", "project"]
           })
           .filter((candidate) => meshMatches.has(candidate.docId))
-          .map((candidate) => applyMeshExpansion(candidate, meshMatches.get(candidate.docId)))
+          .map((candidate) => applyMeshExpansion(candidate, meshMatches.get(candidate.docId), 1))
           .sort(compareChunks)
-          .slice(0, Math.max(2, Math.min(localWave.budget, 4)))
-        : [];
+          .slice(0, Math.max(2, Math.min(localWave.budget, 4)));
+        firstHopDocIds = meshCandidates.map((item) => item.docId);
+        meshDepth = meshCandidates.length > 0 ? 1 : 0;
+        meshReason = meshCandidates.length > 0
+          ? "one-hop mesh opened because stable seeds exposed direct related memory"
+          : "mesh candidates existed but did not survive ranking";
+      }
+
+      const shouldUseSecondHop = shouldUseSecondHopMesh({
+        stableResults,
+        meshCandidates,
+        localWaveBudget: localWave.budget
+      });
+      if (shouldUseSecondHop) {
+        const secondHopMatches = meshStorage.getRelatedDocumentMatches({
+          seedDocIds: firstHopDocIds,
+          limit: Math.max(3, Math.min(localWave.budget, 6)),
+          allowedEdgeTypes: ["module", "symbol", "tag"]
+        });
+        const excludedDocIds = new Set([...meshSeedDocIds, ...firstHopDocIds]);
+        secondHopDocIds = Array.from(secondHopMatches.keys())
+          .filter((docId) => !excludedDocIds.has(docId))
+          .slice(0, Math.max(2, Math.min(3, localWave.budget - 1)));
+
+        if (secondHopDocIds.length > 0) {
+          const secondHopCandidates = meshStorage
+            .fetchCandidates({
+              sourceKinds: ["manual", "decision", "project"]
+            })
+            .filter((candidate) => secondHopDocIds.includes(candidate.docId))
+            .map((candidate) => applyMeshExpansion(candidate, secondHopMatches.get(candidate.docId), 2))
+            .sort(compareChunks)
+            .slice(0, Math.max(1, Math.min(2, localWave.budget - 1)));
+          if (secondHopCandidates.length > 0) {
+            meshCandidates = dedupeChunks([...meshCandidates, ...secondHopCandidates]).sort(compareChunks);
+            meshDepth = 2;
+            meshReason = "two-hop mesh opened because stable seeds were strong enough to justify one extra relation hop";
+          }
+        }
+      }
     } finally {
       meshStorage.close();
     }
@@ -647,7 +694,12 @@ export class RecallService {
         memoryMesh: {
           seedDocIds: meshSeedDocIds,
           expandedDocIds: Array.from(new Set(meshCandidates.map((item) => item.docId))),
-          expansionHits: Array.from(new Set(meshCandidates.flatMap((item) => item.relationHits ?? []))).slice(0, 12)
+          firstHopDocIds,
+          secondHopDocIds,
+          expansionHits: Array.from(new Set(meshCandidates.flatMap((item) => item.relationHits ?? []))).slice(0, 12),
+          expansionDepth: meshDepth,
+          usedSecondHop: secondHopDocIds.length > 0,
+          reason: meshReason
         },
         symbol: symbol ?? null,
         language: language ?? null,
@@ -1057,19 +1109,23 @@ function applyConflictAwareDecisionGate(chunks: ChunkRecord[]): {
 
 function applyMeshExpansion(
   chunk: ChunkRecord,
-  meshMatch?: { score: number; hits: string[] }
+  meshMatch?: { score: number; hits: string[] },
+  hop: 1 | 2 = 1
 ): ChunkRecord {
   if (!meshMatch) {
     return chunk;
   }
 
-  const meshBoost = Math.min(0.18, meshMatch.score * 0.08);
+  const meshBoost = hop === 1
+    ? Math.min(0.18, meshMatch.score * 0.08)
+    : Math.min(0.11, meshMatch.score * 0.045);
   const total = (chunk.score ?? 0) + meshBoost;
+  const hitPrefix = hop === 1 ? "mesh" : "mesh2";
 
   return {
     ...chunk,
     score: total,
-    relationHits: Array.from(new Set([...(chunk.relationHits ?? []), ...meshMatch.hits.map((hit) => `mesh:${hit}`)])),
+    relationHits: Array.from(new Set([...(chunk.relationHits ?? []), ...meshMatch.hits.map((hit) => `${hitPrefix}:${hit}`)])),
     scoreDetails: chunk.scoreDetails
       ? {
           ...chunk.scoreDetails,
@@ -1078,6 +1134,20 @@ function applyMeshExpansion(
         }
       : undefined
   };
+}
+
+function shouldUseSecondHopMesh(input: {
+  stableResults: ChunkRecord[];
+  meshCandidates: ChunkRecord[];
+  localWaveBudget: number;
+}): boolean {
+  if (input.meshCandidates.length === 0 || input.localWaveBudget < 4) {
+    return false;
+  }
+
+  const topStableScore = input.stableResults[0]?.score ?? 0;
+  const stableDecisionCount = input.stableResults.filter((item) => item.sourceKind === "decision").length;
+  return topStableScore >= 0.55 || (topStableScore >= 0.46 && stableDecisionCount >= 1);
 }
 
 function extractDecisionClaims(text: string): Array<{ subject: string; polarity: "positive" | "negative" }> {
@@ -1427,14 +1497,14 @@ function buildTaskExplainPanel(input: {
     : "No strong context was selected for this task.";
 
   const highlights = [
-    ...input.selectedChunks.flatMap((chunk) => chunk.explainCards ?? []),
     ...(input.recentWaveUsed
       ? [{
           kind: "priority" as const,
           title: "History wave opened",
           detail: input.explainSummary.whyDeepWaveOpened[0] ?? "Historical context was pulled in for this task."
         }]
-      : [])
+      : []),
+    ...input.selectedChunks.flatMap((chunk) => chunk.explainCards ?? [])
   ].slice(0, 5);
 
   const suppressions = [

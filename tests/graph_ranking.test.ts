@@ -109,3 +109,66 @@ test("context_for_task can pull one-hop memory mesh neighbors after stable memor
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("context_for_task can open a controlled second mesh hop when stable seeds are strong", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-memory-mesh-two-hop-"));
+  const srcDir = path.join(projectRoot, "src");
+  await fs.mkdir(srcDir, { recursive: true });
+
+  const targetFile = path.join(srcDir, "mesh.ts");
+  await fs.writeFile(
+    targetFile,
+    [
+      "export function runMeshRecall(task: string) {",
+      "  return task;",
+      "}"
+    ].join("\n"),
+    "utf8"
+  );
+
+  const service = new MindKeeperService();
+
+  try {
+    await service.indexProject(projectRoot, { force: true });
+    await service.rememberDecision({
+      projectRoot,
+      title: "Use a stable retrieval hub",
+      decision: "Use one stable retrieval hub before code-local expansion.",
+      moduleName: "retrieval",
+      tags: ["mesh", "retrieval"]
+    });
+    await service.remember({
+      projectRoot,
+      sourceKind: "manual",
+      title: "First-hop bridge note",
+      content: "This bridge note links the stable retrieval hub to a follow-up bridge tag.",
+      moduleName: "retrieval",
+      tags: ["mesh", "bridge"]
+    });
+    const secondHopNote = await service.remember({
+      projectRoot,
+      sourceKind: "manual",
+      title: "Second-hop bridge archive",
+      content: "This archive note is intentionally only reachable through the bridge tag.",
+      moduleName: "history",
+      tags: ["bridge", "archive"]
+    });
+
+    const result = await service.contextForTask({
+      projectRoot,
+      task: "Fix stable retrieval hub behavior for mesh recall",
+      currentFile: targetFile,
+      currentSymbol: "runMeshRecall",
+      topK: 8
+    });
+
+    assert.equal(result.gates.usedMemoryMesh, true);
+    assert.equal(result.gates.memoryMesh.usedSecondHop, true);
+    assert.equal(result.gates.memoryMesh.expansionDepth, 2);
+    assert.ok(result.gates.memoryMesh.secondHopDocIds.includes(secondHopNote.docId));
+    assert.ok(result.gates.memoryMesh.expansionHits.some((item) => item.includes("mesh2:tag:bridge")));
+    assert.ok(result.results.some((item) => item.docId === secondHopNote.docId));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});

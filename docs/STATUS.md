@@ -16,6 +16,7 @@ This file is the clean status snapshot for the current build.
 - Confidence-aware wave stopping: done
 - Per-wave budgeting: done
 - One-hop memory mesh expansion: done
+- Controlled second-hop mesh expansion: done
 - Conflict-aware wave gating: done
 - Adaptive deep-wave triggering: done
 - Fast/deep recall split: done
@@ -78,6 +79,7 @@ For future maintainers, the main extension map lives in:
 - Governance tools can now explicitly mark outdated decisions as superseded by a canonical policy
 - Governance tools now list stale decision candidates and assemble one cleanup plan across health hotspots
 - Governance tools can now execute the safe parts of that cleanup plan automatically
+- Memory mesh can now open one additional controlled hop when stable seeds are strong enough
 - Governance tools now bridge conflict clusters into resolution suggestions before consolidation
 - Governance tools now expose executable resolution plans before consolidation
 - Governance tools can now publish one canonical decision from a reviewed resolution plan

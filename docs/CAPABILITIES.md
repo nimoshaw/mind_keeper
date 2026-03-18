@@ -15,6 +15,7 @@ This file tracks what is already live in the current project and what still belo
 - IDE-friendly explain panels and per-result explain cards for direct client rendering
 - feedback-aware recall reasons plus immediate vote totals returned from `rate_source`
 - one-hop memory mesh expansion on top of relation-aware graph edges
+- controlled second-hop mesh expansion when stable seeds are strong enough to justify one extra relation hop
 - conflict-aware stable-wave gating that prefers one canonical decision when policy drift is detected
 - adaptive deep-wave planning that opens recent history only when the task or confidence signals justify it
 - `recallFast` and `recallDeep`
