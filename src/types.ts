@@ -18,6 +18,25 @@ export type MemoryEdgeType = "module" | "symbol" | "path" | "tag" | "branch" | "
 export type EmbeddingProfileKind = "hash" | "openai_compatible";
 export type RerankerProfileKind = "heuristic" | "openai_compatible";
 
+export interface CanonicalMemorySchemaDescriptor {
+  kind: "mindkeeper_canonical_memory";
+  schemaVersion: number;
+  layoutVersion: number;
+  compatibilityMode: "model_agnostic";
+  vectorOwnership: "profile_specific";
+}
+
+export interface EmbeddingProfileIndexDescriptor {
+  kind: "mindkeeper_profile_index";
+  schemaVersion: number;
+  profileName: string;
+  profileKind: EmbeddingProfileKind;
+  model: string | null;
+  baseUrl: string | null;
+  dimensions: number;
+  compatibilityMode: "reuse_same_profile_only";
+}
+
 export interface EmbeddingProfile {
   name: string;
   kind: EmbeddingProfileKind;

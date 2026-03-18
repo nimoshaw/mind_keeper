@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import fg from "fast-glob";
 import ignore from "ignore";
-import { loadConfig, mindkeeperRoot } from "../config.js";
+import { mindkeeperRoot } from "../config.js";
 import { normalize, EmbeddingService } from "../embedding.js";
 import { buildDocumentEdges } from "../graph.js";
 import { detectGitBranch } from "../git.js";
@@ -14,6 +14,7 @@ import {
   sha1,
   topLevelModule
 } from "../memory-defaults.js";
+import { resolveActiveEmbeddingProfile } from "../profile-registry.js";
 import { ensureProjectScaffold } from "../project.js";
 import {
   detectLanguage as detectIndexedLanguage,
@@ -69,7 +70,7 @@ export class ProjectIndexService {
     distillReason?: string;
   }): Promise<{ chunkCount: number; branchName: string | null }> {
     const config = await ensureProjectScaffold(input.projectRoot);
-    const profile = this.getActiveProfile(config);
+    const profile = resolveActiveEmbeddingProfile(config);
     const stat = await fs.stat(input.absolutePath);
     const gitBranch = await detectGitBranch(input.projectRoot);
     const language = detectIndexedLanguage(input.absolutePath);
@@ -114,7 +115,7 @@ export class ProjectIndexService {
 
   async indexProject(projectRoot: string, options?: { force?: boolean }): Promise<IndexProjectResult> {
     const config = await ensureProjectScaffold(projectRoot);
-    const profile = this.getActiveProfile(config);
+    const profile = resolveActiveEmbeddingProfile(config);
     const ig = ignore().add(config.indexing.excludeGlobs.map((pattern) => pattern.replace("**/", "")));
     const gitBranch = await detectGitBranch(projectRoot);
     const relativePaths = await fg(config.indexing.includeGlobs, {
@@ -239,17 +240,9 @@ export class ProjectIndexService {
     return { indexedFiles, skippedFiles, unchangedFiles, removedFiles };
   }
 
-  private getActiveProfile(config: Awaited<ReturnType<typeof loadConfig>>) {
-    const profile = config.embeddingProfiles.find((item) => item.name === config.activeEmbeddingProfile);
-    if (!profile) {
-      throw new Error(`Unknown embedding profile "${config.activeEmbeddingProfile}".`);
-    }
-    return profile;
-  }
-
   private async persistDocument(input: PersistDocumentInput): Promise<number> {
     const config = await ensureProjectScaffold(input.projectRoot);
-    const profile = this.getActiveProfile(config);
+    const profile = resolveActiveEmbeddingProfile(config);
     const chunks = chunkTextWithOffsets(input.content, input.chunkSize, input.chunkOverlap);
     if (chunks.length === 0) {
       return 0;

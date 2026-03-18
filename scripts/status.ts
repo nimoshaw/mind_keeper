@@ -26,6 +26,7 @@ async function main(): Promise<void> {
       fastDeepRecall: "done",
       lightweightGraph: "done",
       hygieneGovernance: "done",
+      crossAgentCompatibilityDocs: "done",
       releaseProductization: "done"
     },
     commands: {
@@ -49,10 +50,17 @@ async function main(): Promise<void> {
       "docs/STATUS.md",
       "docs/CAPABILITIES.md",
       "docs/EXTENSION_POINTS.md",
+      "docs/CROSS_AGENT_COMPAT.md",
       "docs/MCP_TOOLS_ADDENDUM.md",
       "docs/RELEASE_ADDENDUM.md",
       "docs/QUALITY_ADDENDUM.md"
     ],
+    architecture: {
+      canonicalLayer: "planned-and-scaffolded",
+      indexLayer: "active-profile-scaffolded",
+      runtimeProfileMode: "single-active-profile",
+      currentCompatibilityTrack: "storage-boundary-refinement"
+    },
     tests: {
       fileCount: testFiles.filter((name) => name.endsWith(".test.ts")).length
     }

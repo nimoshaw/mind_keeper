@@ -17,6 +17,7 @@ This file is the clean status snapshot for the current build.
 - Per-wave budgeting: done
 - One-hop memory mesh expansion: done
 - Controlled second-hop mesh expansion: done
+- Cross-agent compatibility foundation: scaffolded
 - Conflict-aware wave gating: done
 - Adaptive deep-wave triggering: done
 - Fast/deep recall split: done
@@ -59,6 +60,7 @@ For future maintainers, the main extension map lives in:
 ## What Is Stable Today
 
 - Project-scoped `.mindkeeper` layout with isolated memory per repository
+- `.mindkeeper/canonical/schema.json` and `.mindkeeper/indexes/<active-profile>/profile.json` scaffolding for future cross-agent compatibility
 - Thin facade entry at `src/mindkeeper.ts` with the real service implementation in `src/mindkeeper-facade.ts`
 - Durable memory writes extracted into `src/app/memory-write-service.ts`
 - Project indexing and document persistence extracted into `src/app/project-index-service.ts`

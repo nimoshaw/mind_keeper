@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { configPath, defaultConfig, loadConfig, mindkeeperRoot, writeConfig } from "./config.js";
+import { ensureProfileRegistryScaffold } from "./profile-registry.js";
 import type { MindKeeperConfig } from "./types.js";
 
 const SUBDIRS = [
@@ -8,6 +9,8 @@ const SUBDIRS = [
   "diary",
   "decisions",
   "imports",
+  "canonical",
+  "indexes",
   "manifests",
   "vector",
   "cache"
@@ -28,5 +31,7 @@ export async function ensureProjectScaffold(projectRoot: string): Promise<MindKe
     await writeConfig(projectRoot, defaultConfig(projectName));
   }
 
-  return loadConfig(projectRoot);
+  const config = await loadConfig(projectRoot);
+  await ensureProfileRegistryScaffold(projectRoot, config);
+  return config;
 }

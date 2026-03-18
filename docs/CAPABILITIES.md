@@ -33,6 +33,7 @@ This file tracks what is already live in the current project and what still belo
 - Follow-up governance suggestions after canonical decision execution
 - Executable follow-up cleanup actions after canonical decision execution
 - Consolidation suggestion scanning for related memories
+- Canonical-memory plus active-profile index scaffolding for future cross-agent compatibility
 - Benchmark, smoke, and regression coverage
 
 ## Product Shape Today

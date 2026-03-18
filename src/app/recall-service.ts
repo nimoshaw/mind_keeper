@@ -13,6 +13,7 @@ import {
   type RecallWaveName,
   type RecallWaveResult
 } from "../planner.js";
+import { resolveActiveEmbeddingProfile } from "../profile-registry.js";
 import { ensureProjectScaffold } from "../project.js";
 import { RerankerService } from "../reranker.js";
 import { detectLanguage as detectIndexedLanguage, inferSymbolName as inferIndexedSymbolName } from "../symbols.js";
@@ -36,7 +37,7 @@ export class RecallService {
 
   async recall(input: RecallInput): Promise<ChunkRecord[]> {
     const config = await ensureProjectScaffold(input.projectRoot);
-    const profile = this.getActiveProfile(config);
+    const profile = resolveActiveEmbeddingProfile(config);
     const rerankerProfile = this.getActiveRerankerProfile(config);
     const topK = input.topK ?? config.retrieval.topK;
     const threshold = input.minScore ?? config.retrieval.similarityThreshold;
@@ -740,14 +741,6 @@ export class RecallService {
       },
       results: explainedChunks
     };
-  }
-
-  private getActiveProfile(config: Awaited<ReturnType<typeof loadConfig>>) {
-    const profile = config.embeddingProfiles.find((item) => item.name === config.activeEmbeddingProfile);
-    if (!profile) {
-      throw new Error(`Unknown embedding profile "${config.activeEmbeddingProfile}".`);
-    }
-    return profile;
   }
 
   private getActiveRerankerProfile(config: Awaited<ReturnType<typeof loadConfig>>): RerankerProfile {

@@ -28,13 +28,18 @@ test("status command returns the current module map and release-check command", 
     phaseStatus: Record<string, string>;
     commands: Record<string, string | null>;
     keyModules: Record<string, string>;
+    docs: string[];
+    architecture: Record<string, string>;
     tests: { fileCount: number };
   };
 
   assert.equal(report.status, "ready-for-release-check");
   assert.equal(report.phaseStatus.releaseProductization, "done");
+  assert.equal(report.phaseStatus.crossAgentCompatibilityDocs, "done");
   assert.equal(report.commands.releaseCheck, "npm run verify && npm run bench:check && npm run bench:suite:check");
   assert.equal(report.keyModules.memoryWrite, "src/app/memory-write-service.ts");
+  assert.ok(report.docs.includes("docs/CROSS_AGENT_COMPAT.md"));
+  assert.equal(report.architecture.runtimeProfileMode, "single-active-profile");
   assert.ok(report.tests.fileCount >= 1);
 });
 
@@ -62,4 +67,5 @@ test("status command can save the current snapshot to manifests", async () => {
 
   assert.equal(saved.status, "ready-for-release-check");
   assert.ok(saved.docs.includes("docs/EXTENSION_POINTS.md"));
+  assert.ok(saved.docs.includes("docs/CROSS_AGENT_COMPAT.md"));
 });

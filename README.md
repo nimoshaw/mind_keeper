@@ -74,6 +74,7 @@ Implemented today:
 - explicit superseded marking for older decisions after a canonical policy is published
 - stale decision review and cleanup planning for long-lived projects with evolving policies
 - semi-automatic cleanup execution for safe hygiene actions like stale archive and noisy-source disabling
+- canonical-memory and active-profile index scaffolding for future cross-agent compatibility
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
 - conflict-resolution plans with ready-to-run consolidation templates
