@@ -156,6 +156,15 @@ That command creates:
 The current Windows release format is a stable `exe` launcher plus a sibling `app` runtime folder.
 This is intentional for V1 because `better-sqlite3` is a native dependency, and this layout is more reliable than forcing everything into one opaque single-file package.
 
+Win11 `Setup.exe` installer build for normal end-user installation:
+
+```powershell
+npm run package:win11:installer
+```
+
+That command expects `Inno Setup 6` on the maintainer machine.
+If it is missing, the script stops with a clear preflight message instead of failing halfway through.
+
 Development mode:
 
 ```bash
@@ -184,6 +193,12 @@ Quick portable package health check:
 
 ```powershell
 artifacts\win11\MindKeeper-win11-x64\mind-keeper.exe --self-check
+```
+
+Portable package MCP config example:
+
+```text
+artifacts/win11/MindKeeper-win11-x64/mcp-client-config.example.json
 ```
 
 ## MCP Usage Flow
@@ -228,6 +243,15 @@ If you are shipping the Win11 portable package instead of the npm build, point t
 ```json
 {
   "command": "D:/projects/mind_keeper/artifacts/win11/MindKeeper-win11-x64/mind-keeper.exe"
+}
+```
+
+If you installed through `Setup.exe`, the default path in the packaged MCP config example is:
+
+```json
+{
+  "command": "C:/Program Files/Mind Keeper/mind-keeper.exe",
+  "args": []
 }
 ```
 

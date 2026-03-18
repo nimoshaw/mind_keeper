@@ -11,6 +11,7 @@
     "setup:win11": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-win11.ps1",
     "start:win11": "powershell -ExecutionPolicy Bypass -File ./scripts/start-win11.ps1",
     "package:win11": "npm run build && node ./scripts/package-win11.mjs",
+    "package:win11:installer": "node ./scripts/package-win11-installer.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test tests/**/*.test.ts",
     "smoke": "tsx scripts/smoke.ts",

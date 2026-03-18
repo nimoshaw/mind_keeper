@@ -40,6 +40,7 @@ This file is the clean status snapshot for the current build.
 - Safe cleanup execution: done
 - Productization docs and release checks: done
 - Win11 portable exe packaging: done
+- Win11 Setup.exe packaging scaffold: done
 - Suggestion-driven consolidation scanning: done
 - Subject-level conflict clustering: done
 - Conflict-resolution suggestions: done
@@ -115,6 +116,7 @@ For future maintainers, the main extension map lives in:
 - Governance tools can now execute the recommended follow-up cleanup for superseded conflicts
 - `verify`, benchmark checks, and smoke coverage
 - Win11 portable `exe` packaging with launcher self-check
+- Win11 installer build script with explicit Inno Setup preflight
 
 ## What `verify` Covers Directly
 

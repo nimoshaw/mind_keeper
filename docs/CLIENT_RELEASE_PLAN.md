@@ -48,6 +48,7 @@ There are also two different Windows distribution forms for the core server:
 
 1. developer distribution: `npm`
 2. end-user distribution: packaged `exe`
+3. installer distribution: `Setup.exe`
 
 Both point to the same local-first MCP engine.
 
@@ -59,6 +60,7 @@ Current state:
 - verified
 - release checks exist
 - Win11 portable `exe` packaging now exists for local distribution
+- Win11 installer packaging script now exists for maintainer-side `Setup.exe` generation
 
 This is the part in the current repository.
 
@@ -123,6 +125,6 @@ The main remaining gap is not memory quality anymore.
 The main gap is product packaging:
 
 - client wrapper code
-- installer flow on top of the portable `exe`
+- final installer QA on top of the portable `exe`
 - onboarding UX
 - release artifacts for the two target clients

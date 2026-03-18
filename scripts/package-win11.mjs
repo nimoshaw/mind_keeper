@@ -13,6 +13,7 @@ const appRoot = path.join(releaseRoot, "app");
 const exePath = path.join(releaseRoot, "mind-keeper.exe");
 const releaseNotesPath = path.join(releaseRoot, "WIN11_RELEASE.md");
 const manifestPath = path.join(releaseRoot, "release-manifest.json");
+const mcpConfigExamplePath = path.join(releaseRoot, "mcp-client-config.example.json");
 
 function run(command, args, cwd = repoRoot) {
   const result = spawnSync(command, args, {
@@ -89,6 +90,19 @@ async function writeManifest() {
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
+async function writeMcpConfigExample() {
+  const configExample = {
+    command: "C:/Program Files/Mind Keeper/mind-keeper.exe",
+    args: [],
+    notes: [
+      "Replace the command path if you are using the portable zip instead of the installed Setup.exe build.",
+      "For the portable zip, point command directly at that extracted mind-keeper.exe."
+    ]
+  };
+
+  await fs.writeFile(mcpConfigExamplePath, JSON.stringify(configExample, null, 2));
+}
+
 async function verifyExecutable() {
   const result = spawnSync(exePath, ["--self-check"], {
     cwd: releaseRoot,
@@ -112,6 +126,7 @@ async function main() {
   await installRuntimeDependencies();
   await buildLauncher();
   await writeManifest();
+  await writeMcpConfigExample();
   await verifyExecutable();
 
   console.log(`\n[Mind Keeper] Win11 package ready: ${releaseRoot}`);

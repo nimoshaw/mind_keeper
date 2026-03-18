@@ -28,6 +28,7 @@ For distribution there are now two supported Win11 tracks:
 
 1. developer track: `npm`
 2. end-user track: packaged `exe`
+3. installer track: `Setup.exe`
 
 The packaged `exe` track does not require the user to install Node.js first.
 
@@ -65,6 +66,7 @@ artifacts/win11/MindKeeper-win11-x64/
   README.md
   WIN11_RELEASE.md
   release-manifest.json
+  mcp-client-config.example.json
   app/
 ```
 
@@ -72,6 +74,29 @@ The `mind-keeper.exe` file is the launcher that IDE clients should call.
 The `app/` folder stays beside it and contains the runtime payload plus production dependencies.
 
 This layout is the current V1 release choice because it is more stable for native modules such as `better-sqlite3` than forcing a single opaque executable image.
+
+### Setup.exe Installer Track
+
+To build a normal Windows installer on a maintainer machine:
+
+```powershell
+Set-Location D:\projects\mind_keeper
+npm run package:win11:installer
+```
+
+Requirements for this step:
+
+- the portable package pipeline must be available
+- `Inno Setup 6` must be installed
+- `ISCC.exe` must be discoverable in `PATH`, or exposed through `ISCC_EXE`
+
+Output location:
+
+```text
+artifacts/win11-installer/MindKeeperSetup-0.1.0-win11-x64.exe
+```
+
+If `Inno Setup 6` is missing, the script stops with a clear message and points back to the ready portable package.
 
 ## Starting The MCP Server On Win11
 
@@ -101,6 +126,27 @@ For a quick health check instead of a long-running MCP session:
 .\mind-keeper.exe --self-check
 ```
 
+### Setup.exe Installer Track
+
+After installing with `Setup.exe`, the default location is:
+
+```text
+C:\Program Files\Mind Keeper\
+```
+
+Important files after install:
+
+- `C:\Program Files\Mind Keeper\mind-keeper.exe`
+- `C:\Program Files\Mind Keeper\app\`
+- `C:\Program Files\Mind Keeper\mcp-client-config.example.json`
+
+The installer also creates Start Menu shortcuts for:
+
+- `Mind Keeper`
+- `Mind Keeper README`
+- `Mind Keeper MCP Config Example`
+- `Uninstall Mind Keeper`
+
 ## MCP Client Command
 
 ### Developer Track
@@ -121,6 +167,16 @@ If the client should use the packaged Windows release:
 ```json
 {
   "command": "D:/projects/mind_keeper/artifacts/win11/MindKeeper-win11-x64/mind-keeper.exe"
+}
+```
+
+### Setup.exe Installer Track
+
+If the user installed through the Windows installer and kept the default path:
+
+```json
+{
+  "command": "C:/Program Files/Mind Keeper/mind-keeper.exe"
 }
 ```
 
@@ -157,9 +213,11 @@ Before shipping the first Windows build:
 2. run `npm run release:check`
 3. run `npm run package:win11`
 4. confirm `mind-keeper.exe --self-check` succeeds
-5. confirm the README matches the current MCP tool surface
-6. confirm the Win11 PowerShell scripts start cleanly on a fresh machine
-7. confirm one sample IDE MCP config can launch the server
+5. optionally run `npm run package:win11:installer`
+6. if installer packaging is used, confirm the installed app path launches cleanly
+7. confirm the README matches the current MCP tool surface
+8. confirm the Win11 PowerShell scripts start cleanly on a fresh machine
+9. confirm one sample IDE MCP config can launch the server
 
 ## Scope Boundary
 
@@ -170,10 +228,10 @@ What this first release is:
 - stable MCP tool surface for future wrappers
 - developer `npm` distribution
 - end-user portable `exe` distribution
+- optional Win11 `Setup.exe` installer distribution
 
 What this first release is not yet:
 
 - a finished VS Code extension
 - a finished AntiGravity plugin
 - a hosted SaaS memory platform
-- a polished `Setup.exe` installer wizard
