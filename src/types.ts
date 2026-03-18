@@ -104,6 +104,41 @@ export interface MemoryAccessSurfaceReport {
   };
 }
 
+export interface CanonicalMemoryInspectionReport {
+  projectRoot: string;
+  schemaVersion: number | null;
+  contractFieldCount: number | null;
+  totalSources: number;
+  activeSources: number;
+  disabledSources: number;
+  sourceKindSummary: Array<{
+    sourceKind: MemorySourceKind;
+    count: number;
+    activeCount: number;
+    disabledCount: number;
+    latestUpdatedAt: number | null;
+  }>;
+  tierSummary: Array<{
+    memoryTier: MemoryTier | "unknown";
+    count: number;
+  }>;
+  branchSummary: Array<{
+    branchName: string | null;
+    docCount: number;
+    disabledCount: number;
+    latestUpdatedAt: number | null;
+  }>;
+  recentSources: Array<{
+    docId: string;
+    sourceKind: MemorySourceKind;
+    title: string | null;
+    relativePath: string | null;
+    memoryTier: MemoryTier | null;
+    updatedAt: number;
+    isDisabled: boolean;
+  }>;
+}
+
 export interface EmbeddingProfile {
   name: string;
   kind: EmbeddingProfileKind;

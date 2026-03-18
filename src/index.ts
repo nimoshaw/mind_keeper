@@ -79,6 +79,28 @@ server.tool(
 );
 
 server.tool(
+  "inspect_canonical_memory",
+  "Return a read-only canonical memory summary across source kinds, tiers, branches, and recent memory assets for the current project.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    recent_limit: z.number().int().positive().max(50).optional().describe("How many recent canonical memory entries to include.")
+  },
+  async ({ project_root, recent_limit }) => {
+    const result = await service.inspectCanonicalMemory(project_root, {
+      recentLimit: recent_limit
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "remember",
   "Store a durable manual memory, decision, diary entry, or imported note inside .mindkeeper and index it immediately.",
   {

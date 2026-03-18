@@ -13,6 +13,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 
 - `inspect_memory_access_surface`
   Returns the model-agnostic canonical contract paths, the active embedding profile reuse/rebuild state, and the safe cross-agent access rules for the current project.
+- `inspect_canonical_memory`
+  Returns a read-only canonical summary across source kinds, memory tiers, branch views, and recent memory assets without touching vector internals.
 
 ## New Governance Tools
 

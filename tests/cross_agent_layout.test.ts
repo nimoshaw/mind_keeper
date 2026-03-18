@@ -142,3 +142,56 @@ test("memory access surface exposes canonical paths, active profile state, and s
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("canonical memory inspection summarizes source kinds, tiers, branches, and recent entries", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-canonical-inspect-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+  const filePath = path.join(srcDir, "memory.ts");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(
+    filePath,
+    [
+      "export function remember(text: string) {",
+      "  return text;",
+      "}"
+    ].join("\n"),
+    "utf8"
+  );
+
+  try {
+    await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+    await service.remember({
+      projectRoot,
+      content: "Stable local workflow note for canonical inspection.",
+      sourceKind: "manual",
+      title: "Canonical workflow note",
+      tags: ["workflow"]
+    });
+    const decision = await service.rememberDecision({
+      projectRoot,
+      title: "Canonical decision",
+      decision: "Use canonical inspection before cross-agent reuse.",
+      tags: ["compatibility"]
+    });
+    await service.disableSource({
+      projectRoot,
+      docId: decision.docId
+    });
+
+    const report = await service.inspectCanonicalMemory(projectRoot, { recentLimit: 3 });
+    assert.ok(report.totalSources >= 3);
+    assert.ok(report.activeSources >= 2);
+    assert.ok(report.disabledSources >= 1);
+    assert.ok(report.sourceKindSummary.some((item) => item.sourceKind === "project" && item.count >= 1));
+    assert.ok(report.sourceKindSummary.some((item) => item.sourceKind === "decision" && item.disabledCount >= 1));
+    assert.ok(report.tierSummary.some((item) => item.memoryTier === "stable"));
+    assert.ok(report.branchSummary.length >= 1);
+    assert.ok(report.recentSources.length <= 3);
+    assert.ok(report.recentSources.some((item) => item.sourceKind === "decision" && item.isDisabled));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});

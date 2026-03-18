@@ -170,6 +170,7 @@ Development-time MCP command:
 
 - `bootstrap_project`
 - `inspect_memory_access_surface`
+- `inspect_canonical_memory`
 - `index_project`
 - `remember`
 - `remember_decision`

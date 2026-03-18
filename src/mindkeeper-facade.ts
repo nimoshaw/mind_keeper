@@ -1,5 +1,6 @@
 import { HygieneService } from "./app/hygiene-service.js";
 import { inspectMemoryAccessSurface } from "./access-surface.js";
+import { CanonicalService } from "./app/canonical-service.js";
 import { MemoryWriteService } from "./app/memory-write-service.js";
 import { ProjectIndexService } from "./app/project-index-service.js";
 import { RecallService } from "./app/recall-service.js";
@@ -20,6 +21,7 @@ import type {
 
 export class MindKeeperService {
   private readonly embeddingService = new EmbeddingService();
+  private readonly canonicalService = new CanonicalService();
   private readonly projectIndexService = new ProjectIndexService(this.embeddingService);
   private readonly memoryWriteService = new MemoryWriteService(this.projectIndexService);
   private readonly recallService = new RecallService();
@@ -268,5 +270,9 @@ export class MindKeeperService {
 
   async inspectMemoryAccessSurface(projectRoot: string) {
     return inspectMemoryAccessSurface(projectRoot);
+  }
+
+  async inspectCanonicalMemory(projectRoot: string, options?: { recentLimit?: number }) {
+    return this.canonicalService.inspectCanonicalMemory(projectRoot, options);
   }
 }
