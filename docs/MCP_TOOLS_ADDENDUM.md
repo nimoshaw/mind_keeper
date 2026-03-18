@@ -15,6 +15,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
   Returns the model-agnostic canonical contract paths, the active embedding profile reuse/rebuild state, and the safe cross-agent access rules for the current project.
 - `inspect_canonical_memory`
   Returns a read-only canonical summary across source kinds, memory tiers, branch views, and recent memory assets without touching vector internals.
+- `inspect_canonical_governance`
+  Returns a read-only governance view over canonical memory, combining health hotspots, stale decision review, and current conflict clusters.
 - `export_canonical_memory`
   Exports a canonical memory snapshot for backup or cross-agent reuse. It can include manual/decision/diary/imported content, while project file content stays opt-in.
 - `validate_profile_index`

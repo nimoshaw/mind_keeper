@@ -174,6 +174,51 @@ export interface CanonicalMemoryInspectionReport {
   }>;
 }
 
+export interface CanonicalMemoryGovernanceReport {
+  projectRoot: string;
+  generatedAt: number;
+  olderThanDays: number;
+  summary: {
+    totalSources: number;
+    activeSources: number;
+    disabledSources: number;
+    coldSources: number;
+    staleCandidates: number;
+    noisyCandidates: number;
+    conflictClusters: number;
+    staleDecisionCandidates: number;
+  };
+  recommendations: Array<{
+    action: "archive_stale_memories" | "review_conflicts" | "disable_noisy_sources" | "healthy";
+    priority: "high" | "medium" | "low";
+    count: number;
+    reason: string;
+    docIds: string[];
+    subjects?: string[];
+  }>;
+  staleDecisions: Array<{
+    docId: string;
+    title: string | null;
+    ageDays: number;
+    isDisabled: boolean;
+    memoryTier: string | null;
+    stabilityScore: number | null;
+    conflictSubjects: string[];
+    reasons: string[];
+    suggestedAction: "mark_superseded" | "review" | "keep_cold";
+  }>;
+  conflictClusters: Array<{
+    subject: string;
+    docIds: string[];
+    titles: string[];
+    docCount: number;
+    pairCount: number;
+    score: number;
+    reasons: string[];
+    suggestedAction: string;
+  }>;
+}
+
 export interface CanonicalMemoryExportItem {
   docId: string;
   sourceKind: MemorySourceKind;

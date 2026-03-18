@@ -22,6 +22,7 @@ This file is the clean status snapshot for the current build.
 - Cross-agent canonical contract: done
 - Cross-agent access surface: done
 - Canonical read-only inspection surface: done
+- Canonical governance inspection surface: done
 - Canonical export surface: done
 - Profile-index validation surface: done
 - Active-profile rebuild surface: done
@@ -73,6 +74,7 @@ For future maintainers, the main extension map lives in:
 - `.mindkeeper/canonical/contract.json` now exposes a stable model-agnostic field contract for external readers
 - `inspect_memory_access_surface` now returns the recommended canonical entrypoints and active-profile reuse rules
 - `inspect_canonical_memory` now exposes a read-only summary of canonical memory by source kind, tier, branch, and recent activity
+- `inspect_canonical_governance` now exposes one read-only governance summary across health hotspots, stale decisions, and conflict clusters
 - `export_canonical_memory` now emits a reusable canonical snapshot without exposing vector internals by default
 - `validate_profile_index` now tells operators whether the active profile is reusable, empty, drifted, or needs registry repair before rebuild
 - `rebuild_active_profile_index` now rebuilds manual memory partitions plus the current project tree under the new active embedding profile

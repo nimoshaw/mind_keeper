@@ -101,6 +101,30 @@ server.tool(
 );
 
 server.tool(
+  "inspect_canonical_governance",
+  "Return a read-only governance summary for canonical memory, including health hotspots, stale decisions, and current conflict clusters.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    older_than_days: z.number().int().positive().max(3650).optional().describe("Treat memories older than this many days as stale candidates."),
+    top_k: z.number().int().positive().max(50).optional().describe("Maximum number of stale decisions or conflict clusters to include.")
+  },
+  async ({ project_root, older_than_days, top_k }) => {
+    const result = await service.inspectCanonicalGovernance(project_root, {
+      olderThanDays: older_than_days,
+      topK: top_k
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "export_canonical_memory",
   "Export a canonical memory snapshot without vector internals so other agents or backup flows can reuse the project memory asset layer.",
   {

@@ -174,6 +174,7 @@ Development-time MCP command:
 - `bootstrap_project`
 - `inspect_memory_access_surface`
 - `inspect_canonical_memory`
+- `inspect_canonical_governance`
 - `export_canonical_memory`
 - `validate_profile_index`
 - `rebuild_active_profile_index`

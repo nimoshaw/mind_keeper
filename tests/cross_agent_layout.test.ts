@@ -13,6 +13,7 @@ import {
   validateActiveProfileIndex
 } from "../src/profile-registry.js";
 import { ensureProjectScaffold } from "../src/project.js";
+import { MindKeeperStorage } from "../src/storage.js";
 
 test("project scaffold creates canonical and active-profile index metadata for future cross-agent compatibility", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-cross-agent-layout-"));
@@ -196,6 +197,58 @@ test("canonical memory inspection summarizes source kinds, tiers, branches, and 
     assert.ok(report.branchSummary.length >= 1);
     assert.ok(report.recentSources.length <= 3);
     assert.ok(report.recentSources.some((item) => item.sourceKind === "decision" && item.isDisabled));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("canonical governance inspection summarizes health hotspots, stale decisions, and conflict clusters", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-canonical-governance-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const governed = true;\n", "utf8");
+
+  try {
+    await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+    const canonical = await service.rememberDecision({
+      projectRoot,
+      title: "Canonical sqlite policy",
+      decision: "Use sqlite for local memory storage.",
+      tags: ["sqlite"]
+    });
+    const conflict = await service.rememberDecision({
+      projectRoot,
+      title: "Legacy sqlite rejection",
+      decision: "Do not use sqlite for local memory storage.",
+      tags: ["sqlite"]
+    });
+
+    await service.markSuperseded({
+      projectRoot,
+      canonicalDocId: canonical.docId,
+      supersededDocIds: [conflict.docId]
+    });
+    const storage = new MindKeeperStorage(projectRoot);
+    try {
+      storage.setDocumentUpdatedAt(conflict.docId, Date.now() - 45 * 24 * 60 * 60 * 1000);
+    } finally {
+      storage.close();
+    }
+
+    const report = await service.inspectCanonicalGovernance(projectRoot, {
+      olderThanDays: 30,
+      topK: 5
+    });
+
+    assert.ok(report.summary.totalSources >= 3);
+    assert.ok(report.summary.conflictClusters >= 1);
+    assert.ok(report.summary.staleDecisionCandidates >= 1);
+    assert.ok(report.recommendations.length >= 1);
+    assert.ok(report.staleDecisions.some((item) => item.docId === conflict.docId));
+    assert.ok(report.conflictClusters.some((item) => item.subject === "sqlite"));
   } finally {
     await fs.rm(projectRoot, { recursive: true, force: true });
   }

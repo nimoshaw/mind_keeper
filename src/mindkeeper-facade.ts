@@ -281,6 +281,53 @@ export class MindKeeperService {
     return this.canonicalService.inspectCanonicalMemory(projectRoot, options);
   }
 
+  async inspectCanonicalGovernance(
+    projectRoot: string,
+    options?: { olderThanDays?: number; topK?: number }
+  ) {
+    const olderThanDays = options?.olderThanDays ?? 45;
+    const topK = options?.topK ?? 8;
+    const [health, staleDecisions, conflictClusters] = await Promise.all([
+      this.hygieneService.reviewMemoryHealth({
+        projectRoot,
+        olderThanDays,
+        topK
+      }),
+      this.hygieneService.listStaleDecisions({
+        projectRoot,
+        olderThanDays,
+        topK
+      }),
+      this.hygieneService.listConflictClusters({
+        projectRoot,
+        topK
+      })
+    ]);
+
+    return {
+      projectRoot,
+      generatedAt: Date.now(),
+      olderThanDays,
+      summary: {
+        ...health.summary,
+        staleDecisionCandidates: staleDecisions.length
+      },
+      recommendations: health.recommendations,
+      staleDecisions: staleDecisions.map((item) => ({
+        docId: item.docId,
+        title: item.title,
+        ageDays: item.ageDays,
+        isDisabled: item.isDisabled,
+        memoryTier: item.memoryTier,
+        stabilityScore: item.stabilityScore,
+        conflictSubjects: item.conflictSubjects,
+        reasons: item.reasons,
+        suggestedAction: item.suggestedAction
+      })),
+      conflictClusters
+    };
+  }
+
   async exportCanonicalMemory(
     projectRoot: string,
     options?: {
