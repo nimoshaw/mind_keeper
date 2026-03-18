@@ -7,6 +7,7 @@ Use it together with:
 - [README.md](/D:/projects/mind_keeper/README.md)
 - [docs/ARCHITECTURE.md](/D:/projects/mind_keeper/docs/ARCHITECTURE.md)
 - [docs/STATUS.md](/D:/projects/mind_keeper/docs/STATUS.md)
+- [docs/VCP_VECTOR_PIPELINE_PLAN.md](/D:/projects/mind_keeper/docs/VCP_VECTOR_PIPELINE_PLAN.md)
 
 ## Current Product Judgment
 
@@ -162,6 +163,7 @@ These are not emergencies, but they should be visible during handoff.
 - no HTTP transport yet
 - remote workspace indexing story is still incomplete
 - deeper recall tuning should now be feedback-driven instead of architecture-driven
+- the VCP-inspired vectorization broker and cache layer is planned, but not implemented yet
 
 ## Files To Read First
 

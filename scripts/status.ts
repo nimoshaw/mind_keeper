@@ -61,6 +61,7 @@ async function main(): Promise<void> {
       "docs/HANDOFF.md",
       "docs/STATUS.md",
       "docs/CAPABILITIES.md",
+      "docs/VCP_VECTOR_PIPELINE_PLAN.md",
       "docs/EXTENSION_POINTS.md",
       "docs/CROSS_AGENT_COMPAT.md",
       "docs/MCP_TOOLS_ADDENDUM.md",

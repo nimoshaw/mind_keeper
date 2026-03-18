@@ -65,6 +65,7 @@ This file tracks what is already live in the current project and what still belo
 - Heavier cross-encoder rerank strategies when latency budget allows
 - Richer IDE UI affordances for wave and relation explain output
 - Canonical-memory versus profile-index separation for future cross-agent compatibility
+- VCP-inspired vectorization broker with batching, caching, debounce aggregation, and idle release
 
 ## Current Bias
 

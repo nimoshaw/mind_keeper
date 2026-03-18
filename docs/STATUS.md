@@ -123,6 +123,7 @@ For future maintainers, the main extension map lives in:
 - `verify`, benchmark checks, and smoke coverage
 - Win11 portable `exe` packaging with launcher self-check
 - Win11 installer build script with explicit Inno Setup preflight
+- VCP-inspired vectorization pipeline study and migration plan documented for the next performance phase
 
 ## What `verify` Covers Directly
 

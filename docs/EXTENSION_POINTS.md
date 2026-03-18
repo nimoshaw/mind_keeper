@@ -40,6 +40,34 @@ Keep in mind:
 - one project partition must keep one embedding dimension
 - model changes should trigger reindex guidance instead of silent drift
 
+## Upgrade The Vectorization Pipeline
+
+Primary docs:
+
+- [docs/VCP_VECTOR_PIPELINE_PLAN.md](/D:/projects/mind_keeper/docs/VCP_VECTOR_PIPELINE_PLAN.md)
+
+Likely primary files when implementation starts:
+
+- `src/embedding.ts`
+- `src/app/project-index-service.ts`
+- `src/app/embedding-batch-broker.ts`
+- `src/app/embedding-cache.ts`
+- `src/app/vectorization-scheduler.ts`
+
+What to add:
+
+- token-aware batch embedding
+- bounded concurrency and ordered result backfill
+- short-window debounce aggregation
+- content-hash vector reuse per active profile
+- graceful fallback to direct embedding when the broker path is unavailable
+
+Keep in mind:
+
+- this should improve indexing and memory-write efficiency without changing recall philosophy
+- `flash` should stay lightweight and out of heavy realtime embedding loops
+- caching must stay profile-scoped and rebuild-safe
+
 ## Prepare Cross-Agent Compatibility
 
 Primary docs:
