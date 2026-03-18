@@ -269,6 +269,10 @@ export class MindKeeperService {
     return this.projectIndexService.indexProject(projectRoot, options);
   }
 
+  async rebuildActiveProfileIndex(projectRoot: string) {
+    return this.projectIndexService.rebuildActiveProfileIndex(projectRoot);
+  }
+
   async inspectMemoryAccessSurface(projectRoot: string) {
     return inspectMemoryAccessSurface(projectRoot);
   }

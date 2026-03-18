@@ -320,3 +320,57 @@ test("profile index validation recommends repairing the registry when config is 
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("active profile rebuild reindexes canonical sources under the new embedding profile", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-rebuild-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+  const filePath = path.join(srcDir, "memory.ts");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(
+    filePath,
+    [
+      "export function remember(text: string) {",
+      "  return text.trim();",
+      "}"
+    ].join("\n"),
+    "utf8"
+  );
+
+  try {
+    const initialConfig = await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+    await service.remember({
+      projectRoot,
+      content: "Canonical manual memory that should survive an active-profile rebuild.",
+      sourceKind: "manual",
+      title: "Rebuild-safe memory"
+    });
+    await writeConfig(projectRoot, {
+      ...initialConfig,
+      activeEmbeddingProfile: "hash-alt",
+      embeddingProfiles: [
+        ...initialConfig.embeddingProfiles,
+        {
+          name: "hash-alt",
+          kind: "hash",
+          dimensions: 256
+        }
+      ]
+    });
+
+    const before = await validateActiveProfileIndex(projectRoot);
+    assert.equal(before.recommendedAction, "rebuild_active_profile_index");
+
+    const rebuild = await service.rebuildActiveProfileIndex(projectRoot);
+    assert.equal(rebuild.profileName, "hash-alt");
+    assert.equal(rebuild.validationBefore.recommendedAction, "rebuild_active_profile_index");
+    assert.equal(rebuild.validationAfter.recommendedAction, "none");
+    assert.equal(rebuild.validationAfter.activeProfileIndex?.status, "ready");
+    assert.ok(rebuild.rebuiltSourceCounts.manual >= 1);
+    assert.ok(rebuild.projectIndexResult.indexedFiles >= 1);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});

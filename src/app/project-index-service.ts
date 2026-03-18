@@ -14,7 +14,7 @@ import {
   sha1,
   topLevelModule
 } from "../memory-defaults.js";
-import { resolveActiveEmbeddingProfile } from "../profile-registry.js";
+import { resolveActiveEmbeddingProfile, validateActiveProfileIndex } from "../profile-registry.js";
 import { ensureProjectScaffold } from "../project.js";
 import {
   detectLanguage as detectIndexedLanguage,
@@ -24,7 +24,7 @@ import {
 } from "../symbols.js";
 import { MindKeeperStorage } from "../storage.js";
 import { chunkTextWithOffsets } from "../text.js";
-import type { IndexProjectResult, MemoryTier, RememberInput } from "../types.js";
+import type { ActiveProfileIndexRebuildReport, IndexProjectResult, MemorySourceKind, MemoryTier, RememberInput } from "../types.js";
 
 type PersistDocumentInput = {
   storage: MindKeeperStorage;
@@ -54,6 +54,85 @@ type PersistDocumentInput = {
 
 export class ProjectIndexService {
   constructor(private readonly embeddingService: EmbeddingService) {}
+
+  async rebuildActiveProfileIndex(projectRoot: string): Promise<ActiveProfileIndexRebuildReport> {
+    const config = await ensureProjectScaffold(projectRoot);
+    const profile = resolveActiveEmbeddingProfile(config);
+    const validationBefore = await validateActiveProfileIndex(projectRoot);
+    const gitBranch = await detectGitBranch(projectRoot);
+    const rebuiltSourceCounts = createSourceCountRecord();
+    let removedMissingSources = 0;
+
+    const storage = new MindKeeperStorage(projectRoot);
+    try {
+      const sources = storage
+        .listSources()
+        .filter((source) => source.sourceKind !== "project")
+        .sort((left, right) => left.updatedAt - right.updatedAt);
+
+      for (const source of sources) {
+        const absolutePath = source.path;
+        let stat: Awaited<ReturnType<typeof fs.stat>>;
+        try {
+          stat = await fs.stat(absolutePath);
+        } catch {
+          storage.deleteDocument(source.docId);
+          removedMissingSources += 1;
+          continue;
+        }
+
+        const content = await fs.readFile(absolutePath, "utf8");
+        const relativePath = source.relativePath ?? relativeToProject(projectRoot, absolutePath);
+        const language = detectIndexedLanguage(absolutePath);
+
+        const chunkCount = await this.persistDocument({
+          storage,
+          projectRoot,
+          docId: source.docId,
+          sourceKind: source.sourceKind,
+          absolutePath,
+          relativePath,
+          title: source.title ?? path.basename(absolutePath),
+          content,
+          tags: source.tags,
+          moduleName: source.moduleName ?? undefined,
+          language: language ?? undefined,
+          symbol: source.symbol ?? undefined,
+          branchName: source.branchName ?? gitBranch ?? undefined,
+          memoryTier: source.memoryTier ?? defaultMemoryTierForSource(source.sourceKind),
+          stabilityScore: clamp01(source.stabilityScore ?? defaultStabilityForSource(source.sourceKind)),
+          distillConfidence: source.distillConfidence ?? undefined,
+          distillReason: source.distillReason ?? undefined,
+          checksum: sha1(content),
+          mtimeMs: Math.floor(stat.mtimeMs),
+          sizeBytes: stat.size,
+          embeddingProfileName: profile.name,
+          chunkSize: config.indexing.chunkSize,
+          chunkOverlap: config.indexing.chunkOverlap
+        });
+
+        if (chunkCount > 0) {
+          rebuiltSourceCounts[source.sourceKind] += 1;
+        }
+      }
+    } finally {
+      storage.close();
+    }
+
+    const projectIndexResult = await this.indexProject(projectRoot, { force: true });
+    rebuiltSourceCounts.project = projectIndexResult.indexedFiles;
+    const validationAfter = await validateActiveProfileIndex(projectRoot);
+
+    return {
+      projectRoot,
+      profileName: profile.name,
+      validationBefore,
+      rebuiltSourceCounts,
+      removedMissingSources,
+      projectIndexResult,
+      validationAfter
+    };
+  }
 
   async persistRememberedDocument(input: {
     projectRoot: string;
@@ -327,4 +406,14 @@ export class ProjectIndexService {
       "utf8"
     );
   }
+}
+
+function createSourceCountRecord(): Record<MemorySourceKind, number> {
+  return {
+    manual: 0,
+    decision: 0,
+    diary: 0,
+    project: 0,
+    imported: 0
+  };
 }

@@ -40,6 +40,7 @@ This file tracks what is already live in the current project and what still belo
 - Read-only canonical inspection summary across source kinds, tiers, branches, and recent memory assets
 - Canonical export snapshot for backup and cross-agent reuse without vector internals by default
 - Explicit profile-index validation for reuse, drift, and registry-repair guidance
+- Safe active-profile rebuild after embedding-profile changes without discarding canonical memory
 - Benchmark, smoke, and regression coverage
 
 ## Product Shape Today

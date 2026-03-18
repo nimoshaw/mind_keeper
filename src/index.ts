@@ -148,6 +148,25 @@ server.tool(
 );
 
 server.tool(
+  "rebuild_active_profile_index",
+  "Rebuild the active embedding profile index from canonical memory files and the current project tree without changing the wave-recall logic.",
+  {
+    project_root: z.string().describe("Absolute path to the project root.")
+  },
+  async ({ project_root }) => {
+    const result = await service.rebuildActiveProfileIndex(project_root);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "remember",
   "Store a durable manual memory, decision, diary entry, or imported note inside .mindkeeper and index it immediately.",
   {

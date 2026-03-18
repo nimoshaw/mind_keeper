@@ -19,6 +19,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
   Exports a canonical memory snapshot for backup or cross-agent reuse. It can include manual/decision/diary/imported content, while project file content stays opt-in.
 - `validate_profile_index`
   Validates whether the active embedding profile index is reusable, needs rebuilding, or needs profile-registry repair before cross-agent reuse.
+- `rebuild_active_profile_index`
+  Rebuilds the active profile index from canonical memory files and the current project tree after profile drift or deliberate model switches.
 
 ## New Governance Tools
 

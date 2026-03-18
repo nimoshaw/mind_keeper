@@ -77,6 +77,7 @@ Implemented today:
 - canonical-memory and active-profile index scaffolding for future cross-agent compatibility
 - active-profile reuse and rebuild guidance when the embedding profile changes
 - explicit profile-index validation before rebuild or cross-agent reuse
+- safe active-profile rebuild from canonical memory files and the project tree
 - stable canonical contract descriptor for model-agnostic memory interoperability
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
@@ -174,6 +175,7 @@ Development-time MCP command:
 - `inspect_canonical_memory`
 - `export_canonical_memory`
 - `validate_profile_index`
+- `rebuild_active_profile_index`
 - `index_project`
 - `remember`
 - `remember_decision`

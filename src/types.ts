@@ -92,6 +92,16 @@ export interface ProfileIndexValidationReport {
   configPresent: boolean;
 }
 
+export interface ActiveProfileIndexRebuildReport {
+  projectRoot: string;
+  profileName: string;
+  validationBefore: ProfileIndexValidationReport;
+  rebuiltSourceCounts: Record<MemorySourceKind, number>;
+  removedMissingSources: number;
+  projectIndexResult: IndexProjectResult;
+  validationAfter: ProfileIndexValidationReport;
+}
+
 export interface MemoryAccessSurfaceReport {
   projectRoot: string;
   canonical: {
