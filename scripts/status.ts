@@ -28,6 +28,7 @@ async function main(): Promise<void> {
       hygieneGovernance: "done",
       crossAgentCompatibilityDocs: "done",
       crossAgentCompatibilityProfileIdentity: "done",
+      crossAgentCompatibilityCanonicalContract: "done",
       releaseProductization: "done"
     },
     commands: {
@@ -58,6 +59,7 @@ async function main(): Promise<void> {
     ],
     architecture: {
       canonicalLayer: "planned-and-scaffolded",
+      canonicalContract: "stable-model-agnostic-descriptor",
       indexLayer: "active-profile-scaffolded-with-rebuild-guidance",
       runtimeProfileMode: "single-active-profile",
       currentCompatibilityTrack: "storage-boundary-refinement"

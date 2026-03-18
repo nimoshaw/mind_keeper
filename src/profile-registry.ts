@@ -1,7 +1,9 @@
 import fs from "node:fs/promises";
+import { buildCanonicalMemoryContractDescriptor } from "./canonical-contract.js";
 import { MindKeeperStorage } from "./storage.js";
 import type {
   ActiveProfileIndexState,
+  CanonicalMemoryContractDescriptor,
   CanonicalMemorySchemaDescriptor,
   EmbeddingProfile,
   EmbeddingProfileIndexDescriptor,
@@ -11,6 +13,7 @@ import {
   CANONICAL_MEMORY_SCHEMA_VERSION,
   MINDKEEPER_LAYOUT_VERSION,
   PROFILE_INDEX_SCHEMA_VERSION,
+  canonicalContractPath,
   canonicalRoot,
   canonicalSchemaPath,
   indexesRoot,
@@ -60,10 +63,15 @@ export async function ensureProfileRegistryScaffold(projectRoot: string, config:
   await fs.mkdir(profileIndexRoot(projectRoot, activeProfile.name), { recursive: true });
 
   await writeJsonIfChanged(canonicalSchemaPath(projectRoot), buildCanonicalMemorySchemaDescriptor());
+  await writeJsonIfChanged(canonicalContractPath(projectRoot), buildCanonicalMemoryContractDescriptor());
   await writeJsonIfChanged(
     profileIndexDescriptorPath(projectRoot, activeProfile.name),
     buildEmbeddingProfileIndexDescriptor(activeProfile)
   );
+}
+
+export async function inspectCanonicalMemoryContract(projectRoot: string): Promise<CanonicalMemoryContractDescriptor | null> {
+  return readJsonDescriptor<CanonicalMemoryContractDescriptor>(canonicalContractPath(projectRoot));
 }
 
 export async function inspectActiveProfileIndex(projectRoot: string, config: MindKeeperConfig): Promise<ActiveProfileIndexState> {
@@ -151,9 +159,13 @@ async function writeJsonIfChanged(filePath: string, data: object): Promise<void>
 }
 
 async function readProfileDescriptor(filePath: string): Promise<EmbeddingProfileIndexDescriptor | null> {
+  return readJsonDescriptor<EmbeddingProfileIndexDescriptor>(filePath);
+}
+
+async function readJsonDescriptor<T>(filePath: string): Promise<T | null> {
   try {
     const raw = await fs.readFile(filePath, "utf8");
-    return JSON.parse(raw) as EmbeddingProfileIndexDescriptor;
+    return JSON.parse(raw) as T;
   } catch {
     return null;
   }

@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { writeConfig } from "../src/config.js";
 import { MindKeeperService } from "../src/mindkeeper.js";
-import { inspectActiveProfileIndex } from "../src/profile-registry.js";
+import { inspectActiveProfileIndex, inspectCanonicalMemoryContract } from "../src/profile-registry.js";
 import { ensureProjectScaffold } from "../src/project.js";
 
 test("project scaffold creates canonical and active-profile index metadata for future cross-agent compatibility", async () => {
@@ -14,6 +14,7 @@ test("project scaffold creates canonical and active-profile index metadata for f
   try {
     const config = await ensureProjectScaffold(projectRoot);
     const canonicalSchemaPath = path.join(projectRoot, ".mindkeeper", "canonical", "schema.json");
+    const canonicalContractPath = path.join(projectRoot, ".mindkeeper", "canonical", "contract.json");
     const profilePath = path.join(projectRoot, ".mindkeeper", "indexes", "hash-local", "profile.json");
 
     const canonicalSchema = JSON.parse(await fs.readFile(canonicalSchemaPath, "utf8")) as {
@@ -28,6 +29,12 @@ test("project scaffold creates canonical and active-profile index metadata for f
       dimensions: number;
       compatibilityMode: string;
     };
+    const canonicalContract = JSON.parse(await fs.readFile(canonicalContractPath, "utf8")) as {
+      kind: string;
+      partitions: string[];
+      fields: Array<{ name: string }>;
+      lifecycle: { runtimeProfileMode: string };
+    };
 
     assert.equal(config.activeEmbeddingProfile, "hash-local");
     assert.equal(canonicalSchema.kind, "mindkeeper_canonical_memory");
@@ -38,6 +45,11 @@ test("project scaffold creates canonical and active-profile index metadata for f
     assert.equal(profileDescriptor.profileName, "hash-local");
     assert.equal(profileDescriptor.dimensions, 256);
     assert.equal(profileDescriptor.compatibilityMode, "reuse_same_profile_only");
+    assert.equal(canonicalContract.kind, "mindkeeper_canonical_contract");
+    assert.equal(canonicalContract.lifecycle.runtimeProfileMode, "single_active_profile");
+    assert.ok(canonicalContract.partitions.includes("project"));
+    assert.ok(canonicalContract.fields.some((field) => field.name === "docId"));
+    assert.ok(canonicalContract.fields.some((field) => field.name === "memoryTier"));
   } finally {
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
@@ -82,6 +94,24 @@ test("active profile index state reports rebuild guidance after the embedding pr
     assert.ok(state.reasons.includes("manifest_profile_drift"));
     assert.equal(state.activeProfileManifestCount, 0);
     assert.ok(state.totalManifestCount >= 1);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("canonical memory contract can be inspected as a stable model-agnostic schema descriptor", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-canonical-contract-"));
+
+  try {
+    await ensureProjectScaffold(projectRoot);
+    const contract = await inspectCanonicalMemoryContract(projectRoot);
+
+    assert.ok(contract);
+    assert.equal(contract?.kind, "mindkeeper_canonical_contract");
+    assert.equal(contract?.schemaVersion, 1);
+    assert.equal(contract?.canonicalFiles.contractPath, ".mindkeeper/canonical/contract.json");
+    assert.ok(contract?.governanceSignals.includes("superseded"));
+    assert.ok(contract?.fields.some((field) => field.name === "conflictSubjects"));
   } finally {
     await fs.rm(projectRoot, { recursive: true, force: true });
   }

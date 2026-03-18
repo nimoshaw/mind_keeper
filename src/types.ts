@@ -26,6 +26,31 @@ export interface CanonicalMemorySchemaDescriptor {
   vectorOwnership: "profile_specific";
 }
 
+export interface CanonicalMemoryFieldDescriptor {
+  name: string;
+  type: string;
+  required: boolean;
+  description: string;
+}
+
+export interface CanonicalMemoryContractDescriptor {
+  kind: "mindkeeper_canonical_contract";
+  schemaVersion: number;
+  layoutVersion: number;
+  partitions: Array<"knowledge" | "diary" | "decisions" | "imports" | "project">;
+  canonicalFiles: {
+    schemaPath: string;
+    contractPath: string;
+  };
+  lifecycle: {
+    truthLayer: "canonical_memory";
+    indexLayer: "profile_specific_indexes";
+    runtimeProfileMode: "single_active_profile";
+  };
+  governanceSignals: string[];
+  fields: CanonicalMemoryFieldDescriptor[];
+}
+
 export interface EmbeddingProfileIndexDescriptor {
   kind: "mindkeeper_profile_index";
   schemaVersion: number;

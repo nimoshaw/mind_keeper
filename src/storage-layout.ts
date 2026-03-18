@@ -13,6 +13,10 @@ export function canonicalSchemaPath(projectRoot: string): string {
   return path.join(canonicalRoot(projectRoot), "schema.json");
 }
 
+export function canonicalContractPath(projectRoot: string): string {
+  return path.join(canonicalRoot(projectRoot), "contract.json");
+}
+
 export function indexesRoot(projectRoot: string): string {
   return path.join(mindkeeperRoot(projectRoot), "indexes");
 }

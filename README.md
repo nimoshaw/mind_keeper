@@ -76,6 +76,7 @@ Implemented today:
 - semi-automatic cleanup execution for safe hygiene actions like stale archive and noisy-source disabling
 - canonical-memory and active-profile index scaffolding for future cross-agent compatibility
 - active-profile reuse and rebuild guidance when the embedding profile changes
+- stable canonical contract descriptor for model-agnostic memory interoperability
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
 - conflict-resolution plans with ready-to-run consolidation templates

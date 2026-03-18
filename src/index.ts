@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { inspectActiveProfileIndex } from "./profile-registry.js";
+import { inspectActiveProfileIndex, inspectCanonicalMemoryContract } from "./profile-registry.js";
 import { ensureProjectScaffold } from "./project.js";
 import { MindKeeperService } from "./mindkeeper.js";
 import type { MemorySourceKind } from "./types.js";
@@ -22,6 +22,7 @@ server.tool(
   async ({ project_root }) => {
     const config = await ensureProjectScaffold(project_root);
     const indexState = await inspectActiveProfileIndex(project_root, config);
+    const canonicalContract = await inspectCanonicalMemoryContract(project_root);
     return {
       content: [
         {
@@ -39,7 +40,15 @@ server.tool(
                 `.mindkeeper/indexes/${config.activeEmbeddingProfile}`,
                 ".mindkeeper/vector"
               ],
-              indexState
+              indexState,
+              canonicalContract: canonicalContract
+                ? {
+                    schemaVersion: canonicalContract.schemaVersion,
+                    contractPath: canonicalContract.canonicalFiles.contractPath,
+                    fieldCount: canonicalContract.fields.length,
+                    governanceSignals: canonicalContract.governanceSignals
+                  }
+                : null
             },
             null,
             2

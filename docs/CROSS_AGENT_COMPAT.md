@@ -274,6 +274,12 @@ Define and document the schema that should survive:
 
 This is the point where other agents can start reading project memory responsibly.
 
+Current state:
+
+- `.mindkeeper/canonical/contract.json` is scaffolded automatically
+- the contract exposes model-agnostic field names, lifecycle boundaries, and governance signals
+- bootstrap/status flows now have enough structure to point external readers at the canonical compatibility surface
+
 ### Phase D: Access Surface
 
 Only after the layers are clear should Mind Keeper expose stronger compatibility behavior through:
