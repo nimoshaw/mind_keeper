@@ -2,6 +2,7 @@ import { HygieneService } from "./app/hygiene-service.js";
 import { inspectMemoryAccessSurface } from "./access-surface.js";
 import { CanonicalService } from "./app/canonical-service.js";
 import { MemoryWriteService } from "./app/memory-write-service.js";
+import { ProfileOpsService } from "./app/profile-ops-service.js";
 import { ProjectIndexService } from "./app/project-index-service.js";
 import { RecallService } from "./app/recall-service.js";
 import { SessionService } from "./app/session-service.js";
@@ -24,6 +25,7 @@ export class MindKeeperService {
   private readonly embeddingService = new EmbeddingService();
   private readonly canonicalService = new CanonicalService();
   private readonly projectIndexService = new ProjectIndexService(this.embeddingService);
+  private readonly profileOpsService = new ProfileOpsService(this.projectIndexService);
   private readonly memoryWriteService = new MemoryWriteService(this.projectIndexService);
   private readonly recallService = new RecallService();
   private readonly sessionService = new SessionService({
@@ -346,5 +348,17 @@ export class MindKeeperService {
 
   async repairProfileRegistry(projectRoot: string) {
     return repairProfileRegistry(projectRoot);
+  }
+
+  async recoverProfileIndex(input: {
+    projectRoot: string;
+    strategy?: "safe" | "standard" | "aggressive";
+    autoRepair?: boolean;
+    autoRebuild?: boolean;
+    autoIndex?: boolean;
+    forceIndex?: boolean;
+    dryRun?: boolean;
+  }) {
+    return this.profileOpsService.recoverActiveProfileIndex(input);
   }
 }

@@ -6,9 +6,12 @@ import { ensureProjectScaffold } from "./project.js";
 import { MindKeeperService } from "./mindkeeper.js";
 import type { MemorySourceKind } from "./types.js";
 
+const APP_NAME = "mind-keeper";
+const APP_VERSION = "0.1.0";
+
 const server = new McpServer({
-  name: "mind-keeper",
-  version: "0.1.0"
+  name: APP_NAME,
+  version: APP_VERSION
 });
 
 const service = new MindKeeperService();
@@ -198,6 +201,39 @@ server.tool(
   },
   async ({ project_root }) => {
     const result = await service.repairProfileRegistry(project_root);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
+  "recover_profile_index",
+  "Run a safe profile-index recovery flow that can validate, repair registry metadata, rebuild the active profile index, and index project files when needed.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    strategy: z.enum(["safe", "standard", "aggressive"]).optional().describe("Recovery template. safe repairs only, standard repairs plus rebuild/index, aggressive also forces project indexing."),
+    auto_repair: z.boolean().optional().describe("Automatically run profile-registry repair when validation recommends it. Defaults to true."),
+    auto_rebuild: z.boolean().optional().describe("Automatically rebuild the active profile index when validation recommends it. Defaults to true."),
+    auto_index: z.boolean().optional().describe("Automatically run index_project when validation reports an empty scaffolded profile. Defaults to true."),
+    force_index: z.boolean().optional().describe("Force index_project to reindex all eligible project files when auto_index is used."),
+    dry_run: z.boolean().optional().describe("Only plan the recovery path without repairing, rebuilding, or indexing. Defaults to false.")
+  },
+  async ({ project_root, strategy, auto_repair, auto_rebuild, auto_index, force_index, dry_run }) => {
+    const result = await service.recoverProfileIndex({
+      projectRoot: project_root,
+      strategy,
+      autoRepair: auto_repair,
+      autoRebuild: auto_rebuild,
+      autoIndex: auto_index,
+      forceIndex: force_index,
+      dryRun: dry_run
+    });
     return {
       content: [
         {
@@ -1166,5 +1202,38 @@ server.tool(
   }
 );
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+function hasArg(...names: string[]): boolean {
+  return names.some((name) => process.argv.includes(name));
+}
+
+async function main(): Promise<void> {
+  if (hasArg("--version", "-v")) {
+    console.log(`${APP_NAME} ${APP_VERSION}`);
+    return;
+  }
+
+  if (hasArg("--self-check")) {
+    console.log(
+      JSON.stringify(
+        {
+          name: APP_NAME,
+          version: APP_VERSION,
+          node: process.version,
+          packaged: Boolean((process as NodeJS.Process & { pkg?: unknown }).pkg)
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.stack ?? error.message : String(error);
+  console.error(`[${APP_NAME}] fatal startup error\n${message}`);
+  process.exitCode = 1;
+});

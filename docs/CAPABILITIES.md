@@ -43,6 +43,9 @@ This file tracks what is already live in the current project and what still belo
 - Explicit profile-index validation for reuse, drift, and registry-repair guidance
 - Safe active-profile rebuild after embedding-profile changes without discarding canonical memory
 - Profile-registry repair for missing config, canonical contract files, and active-profile descriptor metadata
+- One-call profile-index recovery orchestration that can validate, repair, rebuild, and index as needed
+- Recovery strategy templates (`safe / standard / aggressive`) plus dry-run planning for operators and IDE clients
+- Structured recovery failure classification with stable codes and operator guidance for config, API-key, and provider failures
 - Benchmark, smoke, and regression coverage
 
 ## Product Shape Today

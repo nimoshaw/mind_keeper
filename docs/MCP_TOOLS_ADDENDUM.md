@@ -21,6 +21,11 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
   Exports a canonical memory snapshot for backup or cross-agent reuse. It can include manual/decision/diary/imported content, while project file content stays opt-in.
 - `validate_profile_index`
   Validates whether the active embedding profile index is reusable, needs rebuilding, or needs profile-registry repair before cross-agent reuse.
+- `recover_profile_index`
+  Runs one safe orchestration pass that can validate, repair missing profile metadata, rebuild the active profile index, and run `index_project` for empty scaffolds when needed.
+  It also supports `dry_run: true`, which only plans the recovery path and returns `manualActions` for the next operator step.
+  It supports `strategy: "safe" | "standard" | "aggressive"` so IDE clients can choose between conservative repair-only behavior and full recovery with forced indexing.
+  On failure it now returns a stable `failure.code` and operator-facing `manualActions`, so clients can distinguish config problems from missing API keys or provider-side failures.
 - `rebuild_active_profile_index`
   Rebuilds the active profile index from canonical memory files and the current project tree after profile drift or deliberate model switches.
 - `repair_profile_registry`
@@ -85,6 +90,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 18. Use `execute_conflict_resolution_followup` to carry out that cleanup action without manually stitching together extra hygiene calls.
 19. Use `suggest_consolidations` to find merge candidates before touching stored memories.
 20. Use `consolidate_memories` once you agree with one of the suggestions.
+21. During model switches or cross-agent handoff, call `recover_profile_index` instead of manually chaining repair/rebuild/index steps.
+22. Use `recover_profile_index` with `dry_run: true` when you want the IDE to preview the recovery path before touching project files.
 
 ## Explain Fields You Now See
 

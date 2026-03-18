@@ -107,8 +107,15 @@ Use these first when you need to re-enter the project quickly:
 - capability matrix: [docs/CAPABILITIES.md](/D:/projects/mind_keeper/docs/CAPABILITIES.md)
 - extension map: [docs/EXTENSION_POINTS.md](/D:/projects/mind_keeper/docs/EXTENSION_POINTS.md)
 - cross-agent compatibility plan: [docs/CROSS_AGENT_COMPAT.md](/D:/projects/mind_keeper/docs/CROSS_AGENT_COMPAT.md)
+- client release plan: [docs/CLIENT_RELEASE_PLAN.md](/D:/projects/mind_keeper/docs/CLIENT_RELEASE_PLAN.md)
 
 ## Quick Start
+
+First release target:
+
+- Windows 11
+
+Windows-first deployment and release notes live in [docs/WIN11_RELEASE.md](/D:/projects/mind_keeper/docs/WIN11_RELEASE.md).
 
 Requirements:
 
@@ -129,6 +136,26 @@ npm install
 npm run build
 ```
 
+Win11 one-command setup:
+
+```powershell
+npm run setup:win11
+```
+
+Win11 portable `exe` build for non-Node users:
+
+```powershell
+npm run package:win11
+```
+
+That command creates:
+
+- `artifacts/win11/MindKeeper-win11-x64/mind-keeper.exe`
+- `artifacts/win11/MindKeeper-win11-x64/app/`
+
+The current Windows release format is a stable `exe` launcher plus a sibling `app` runtime folder.
+This is intentional for V1 because `better-sqlite3` is a native dependency, and this layout is more reliable than forcing everything into one opaque single-file package.
+
 Development mode:
 
 ```bash
@@ -141,6 +168,24 @@ Production mode:
 npm start
 ```
 
+Win11 local MCP launch:
+
+```powershell
+npm run start:win11
+```
+
+Portable release launch:
+
+```powershell
+artifacts\win11\MindKeeper-win11-x64\mind-keeper.exe
+```
+
+Quick portable package health check:
+
+```powershell
+artifacts\win11\MindKeeper-win11-x64\mind-keeper.exe --self-check
+```
+
 ## MCP Usage Flow
 
 The recommended first-run workflow is:
@@ -151,12 +196,38 @@ The recommended first-run workflow is:
 4. `context_for_task`
 5. `recall`
 
+When switching embedding models or handing a project to another agent, use:
+
+1. `validate_profile_index`
+2. `recover_profile_index` (recommended one-call recovery)
+3. `inspect_memory_access_surface` (optional final cross-agent check)
+
+If you want to preview the recovery path before touching files, call `recover_profile_index` with `dry_run: true`.
+The response will keep the current validation state unchanged and return planned steps plus `manualActions`.
+
+Recovery strategies:
+
+- `safe`: repair metadata only, then stop and return the next manual step
+- `standard`: repair, rebuild, and index as needed
+- `aggressive`: same as `standard`, but forces project indexing when indexing runs
+
+When recovery fails, the report now includes a stable `failure.code` plus `manualActions`.
+This is intended for IDE clients to show concrete next steps like reviewing `.mindkeeper/config.toml` or setting a missing API key environment variable.
+
 Typical MCP server command:
 
 ```json
 {
   "command": "node",
   "args": ["D:/projects/mind_keeper/dist/index.js"]
+}
+```
+
+If you are shipping the Win11 portable package instead of the npm build, point the client to:
+
+```json
+{
+  "command": "D:/projects/mind_keeper/artifacts/win11/MindKeeper-win11-x64/mind-keeper.exe"
 }
 ```
 
@@ -177,6 +248,7 @@ Development-time MCP command:
 - `inspect_canonical_governance`
 - `export_canonical_memory`
 - `validate_profile_index`
+- `recover_profile_index`
 - `rebuild_active_profile_index`
 - `repair_profile_registry`
 - `index_project`

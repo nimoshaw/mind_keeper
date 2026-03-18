@@ -17,6 +17,21 @@ export type MemoryEdgeType = "module" | "symbol" | "path" | "tag" | "branch" | "
 
 export type EmbeddingProfileKind = "hash" | "openai_compatible";
 export type RerankerProfileKind = "heuristic" | "openai_compatible";
+export type ProfileIndexRecoveryStrategy = "safe" | "standard" | "aggressive";
+export type ProfileIndexValidationAction =
+  | "none"
+  | "index_project"
+  | "rebuild_active_profile_index"
+  | "repair_profile_registry"
+  | "review_project_config";
+export type ProfileIndexRecoveryFailureCode =
+  | "missing_embedding_api_key"
+  | "invalid_embedding_profile_config"
+  | "unknown_embedding_profile"
+  | "embedding_provider_request_failed"
+  | "embedding_provider_empty_vector"
+  | "review_project_config_required"
+  | "unknown_error";
 
 export interface CanonicalMemorySchemaDescriptor {
   kind: "mindkeeper_canonical_memory";
@@ -80,11 +95,7 @@ export interface ProfileIndexValidationReport {
   projectRoot: string;
   activeProfileIndex: ActiveProfileIndexState | null;
   severity: "ok" | "warn" | "error";
-  recommendedAction:
-    | "none"
-    | "index_project"
-    | "rebuild_active_profile_index"
-    | "repair_profile_registry";
+  recommendedAction: ProfileIndexValidationAction;
   summary: string;
   issues: string[];
   legacyVectorLayoutPresent: boolean;
@@ -109,6 +120,62 @@ export interface ProfileRegistryRepairReport {
   repairedPaths: string[];
   validationBefore: ProfileIndexValidationReport;
   validationAfter: ProfileIndexValidationReport;
+}
+
+export interface ProfileIndexRecoveryStep {
+  action: "repair_profile_registry" | "rebuild_active_profile_index" | "index_project";
+  status: "executed" | "skipped" | "planned" | "failed";
+  reason: string;
+  recommendedActionAfter: ProfileIndexValidationReport["recommendedAction"];
+  failureCode?: ProfileIndexRecoveryFailureCode;
+  errorMessage?: string;
+}
+
+export interface ProfileIndexRecoveryManualAction {
+  action:
+    | "repair_profile_registry"
+    | "rebuild_active_profile_index"
+    | "index_project"
+    | "inspect_memory_access_surface"
+    | "review_project_config"
+    | "set_environment_variable";
+  reason: string;
+}
+
+export interface ProfileIndexRecoveryFailure {
+  code: ProfileIndexRecoveryFailureCode;
+  action: ProfileIndexRecoveryStep["action"] | null;
+  summary: string;
+  detail: string;
+  retryable: boolean;
+  envVarName?: string;
+  profileName?: string;
+}
+
+export interface ProfileIndexRecoveryReport {
+  projectRoot: string;
+  startedAt: number;
+  completedAt: number;
+  options: {
+    strategy: ProfileIndexRecoveryStrategy;
+    autoRepair: boolean;
+    autoRebuild: boolean;
+    autoIndex: boolean;
+    forceIndex: boolean;
+    dryRun: boolean;
+  };
+  initialValidation: ProfileIndexValidationReport;
+  steps: ProfileIndexRecoveryStep[];
+  repairReport: ProfileRegistryRepairReport | null;
+  rebuildReport: ActiveProfileIndexRebuildReport | null;
+  indexProjectResult: IndexProjectResult | null;
+  finalValidation: ProfileIndexValidationReport;
+  failedAction: ProfileIndexRecoveryStep["action"] | null;
+  failure: ProfileIndexRecoveryFailure | null;
+  errorMessage: string | null;
+  manualActions: ProfileIndexRecoveryManualAction[];
+  resolved: boolean;
+  summary: string;
 }
 
 export interface MemoryAccessSurfaceReport {

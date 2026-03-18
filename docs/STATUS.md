@@ -27,6 +27,7 @@ This file is the clean status snapshot for the current build.
 - Profile-index validation surface: done
 - Active-profile rebuild surface: done
 - Profile-registry repair surface: done
+- Profile-index recovery orchestration surface: done
 - Conflict-aware wave gating: done
 - Adaptive deep-wave triggering: done
 - Fast/deep recall split: done
@@ -38,6 +39,7 @@ This file is the clean status snapshot for the current build.
 - Cleanup planning: done
 - Safe cleanup execution: done
 - Productization docs and release checks: done
+- Win11 portable exe packaging: done
 - Suggestion-driven consolidation scanning: done
 - Subject-level conflict clustering: done
 - Conflict-resolution suggestions: done
@@ -79,6 +81,10 @@ For future maintainers, the main extension map lives in:
 - `validate_profile_index` now tells operators whether the active profile is reusable, empty, drifted, or needs registry repair before rebuild
 - `rebuild_active_profile_index` now rebuilds manual memory partitions plus the current project tree under the new active embedding profile
 - `repair_profile_registry` now recreates missing config, canonical descriptors, and active-profile descriptor files without touching stored memory content
+- `recover_profile_index` now provides one safe operator flow that chains validation, repair, rebuild, and empty-scaffold indexing when needed
+- `recover_profile_index` now also supports dry-run planning plus explicit manual next-step suggestions for IDE operators
+- `recover_profile_index` now supports `safe / standard / aggressive` strategy templates while still allowing explicit flag overrides
+- `recover_profile_index` now returns structured failure codes and manual operator guidance for missing API keys, bad profile config, and provider-side rebuild failures
 - Thin facade entry at `src/mindkeeper.ts` with the real service implementation in `src/mindkeeper-facade.ts`
 - Durable memory writes extracted into `src/app/memory-write-service.ts`
 - Project indexing and document persistence extracted into `src/app/project-index-service.ts`
@@ -108,6 +114,7 @@ For future maintainers, the main extension map lives in:
 - Governance tools now suggest the next follow-up action after canonical decision execution
 - Governance tools can now execute the recommended follow-up cleanup for superseded conflicts
 - `verify`, benchmark checks, and smoke coverage
+- Win11 portable `exe` packaging with launcher self-check
 
 ## What `verify` Covers Directly
 

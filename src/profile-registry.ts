@@ -166,7 +166,26 @@ export async function validateActiveProfileIndex(projectRoot: string): Promise<P
     };
   }
 
-  const state = await inspectActiveProfileIndex(projectRoot, config);
+  let state: ActiveProfileIndexState;
+  try {
+    state = await inspectActiveProfileIndex(projectRoot, config);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const issues = classifyValidationIssues(message);
+    return {
+      projectRoot,
+      activeProfileIndex: null,
+      severity: "error",
+      recommendedAction: "review_project_config",
+      summary: issues.includes("unknown_active_embedding_profile")
+        ? "The active embedding profile in config does not exist in embeddingProfiles and must be corrected before validation can continue."
+        : "Mind Keeper could not interpret the active embedding profile configuration safely.",
+      issues,
+      legacyVectorLayoutPresent,
+      descriptorPresent: false,
+      configPresent: true
+    };
+  }
   const issues = [...state.reasons];
 
   if (state.status === "ready" && state.reusable) {
@@ -211,6 +230,13 @@ export async function validateActiveProfileIndex(projectRoot: string): Promise<P
     descriptorPresent: state.descriptorPresent,
     configPresent: true
   };
+}
+
+function classifyValidationIssues(message: string): string[] {
+  if (/^Unknown embedding profile "([^"]+)"/.test(message)) {
+    return ["unknown_active_embedding_profile"];
+  }
+  return ["invalid_active_embedding_profile_config"];
 }
 
 export async function repairProfileRegistry(projectRoot: string): Promise<ProfileRegistryRepairReport> {

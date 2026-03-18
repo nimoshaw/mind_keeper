@@ -34,6 +34,7 @@ async function main(): Promise<void> {
       crossAgentCompatibilityProfileValidation: "done",
       crossAgentCompatibilityProfileRebuild: "done",
       crossAgentCompatibilityProfileRepair: "done",
+      crossAgentCompatibilityProfileRecoveryOrchestration: "done",
       releaseProductization: "done"
     },
     commands: {
@@ -71,6 +72,7 @@ async function main(): Promise<void> {
       profileValidation: "explicit-reuse-rebuild-repair-guidance",
       profileRebuild: "safe-active-profile-reembedding-path",
       profileRepair: "repair-missing-config-and-descriptors",
+      profileRecovery: "one-call-safe-repair-rebuild-index-orchestration",
       runtimeProfileMode: "single-active-profile",
       currentCompatibilityTrack: "storage-boundary-refinement"
     },

@@ -43,6 +43,7 @@ test("status command returns the current module map and release-check command", 
   assert.equal(report.phaseStatus.crossAgentCompatibilityProfileValidation, "done");
   assert.equal(report.phaseStatus.crossAgentCompatibilityProfileRebuild, "done");
   assert.equal(report.phaseStatus.crossAgentCompatibilityProfileRepair, "done");
+  assert.equal(report.phaseStatus.crossAgentCompatibilityProfileRecoveryOrchestration, "done");
   assert.equal(report.commands.releaseCheck, "npm run verify && npm run bench:check && npm run bench:suite:check");
   assert.equal(report.keyModules.memoryWrite, "src/app/memory-write-service.ts");
   assert.ok(report.docs.includes("docs/CROSS_AGENT_COMPAT.md"));
@@ -54,6 +55,7 @@ test("status command returns the current module map and release-check command", 
   assert.equal(report.architecture.profileValidation, "explicit-reuse-rebuild-repair-guidance");
   assert.equal(report.architecture.profileRebuild, "safe-active-profile-reembedding-path");
   assert.equal(report.architecture.profileRepair, "repair-missing-config-and-descriptors");
+  assert.equal(report.architecture.profileRecovery, "one-call-safe-repair-rebuild-index-orchestration");
   assert.ok(report.tests.fileCount >= 1);
 });
 

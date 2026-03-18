@@ -375,6 +375,32 @@ test("profile index validation recommends repairing the registry when config is 
   }
 });
 
+test("profile index validation reports review_project_config when the active profile name is unknown", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-validate-unknown-profile-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const badProfile = true;\n", "utf8");
+
+  try {
+    const initialConfig = await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+    await writeConfig(projectRoot, {
+      ...initialConfig,
+      activeEmbeddingProfile: "missing-profile"
+    });
+
+    const report = await validateActiveProfileIndex(projectRoot);
+    assert.equal(report.severity, "error");
+    assert.equal(report.recommendedAction, "review_project_config");
+    assert.ok(report.issues.includes("unknown_active_embedding_profile"));
+    assert.equal(report.activeProfileIndex, null);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("active profile rebuild reindexes canonical sources under the new embedding profile", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-rebuild-"));
   const service = new MindKeeperService();
@@ -471,6 +497,214 @@ test("profile registry repair recreates a missing config and canonical metadata"
     assert.ok(repair.repairedPaths.includes(contractPath));
     assert.equal(repair.validationAfter.configPresent, true);
   } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile recovery can repair and index an empty project scaffold automatically", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-recover-repair-index-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const recovered = true;\n", "utf8");
+
+  try {
+    const report = await service.recoverProfileIndex({
+      projectRoot
+    });
+
+    assert.equal(report.initialValidation.recommendedAction, "repair_profile_registry");
+    assert.equal(report.resolved, true);
+    assert.equal(report.finalValidation.recommendedAction, "none");
+    assert.ok(report.steps.some((step) => step.action === "repair_profile_registry" && step.status === "executed"));
+    assert.ok(report.steps.some((step) => step.action === "index_project" && step.status === "executed"));
+    assert.ok((report.indexProjectResult?.indexedFiles ?? 0) >= 1);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile recovery can rebuild after active profile drift", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-recover-rebuild-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const recoverRebuild = true;\n", "utf8");
+
+  try {
+    const initialConfig = await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+    await writeConfig(projectRoot, {
+      ...initialConfig,
+      activeEmbeddingProfile: "hash-alt",
+      embeddingProfiles: [
+        ...initialConfig.embeddingProfiles,
+        {
+          name: "hash-alt",
+          kind: "hash",
+          dimensions: 256
+        }
+      ]
+    });
+
+    const report = await service.recoverProfileIndex({
+      projectRoot
+    });
+
+    assert.equal(report.initialValidation.recommendedAction, "rebuild_active_profile_index");
+    assert.equal(report.resolved, true);
+    assert.equal(report.finalValidation.recommendedAction, "none");
+    assert.ok(report.steps.some((step) => step.action === "rebuild_active_profile_index" && step.status === "executed"));
+    assert.equal(report.rebuildReport?.profileName, "hash-alt");
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile recovery dry run plans repair and index without mutating the project", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-recover-dry-run-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+  const configPath = path.join(projectRoot, ".mindkeeper", "config.toml");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const preview = true;\n", "utf8");
+
+  try {
+    const report = await service.recoverProfileIndex({
+      projectRoot,
+      dryRun: true
+    });
+
+    assert.equal(report.options.dryRun, true);
+    assert.equal(report.resolved, false);
+    assert.equal(report.initialValidation.recommendedAction, "repair_profile_registry");
+    assert.equal(report.finalValidation.recommendedAction, "repair_profile_registry");
+    assert.ok(report.steps.some((step) => step.action === "repair_profile_registry" && step.status === "planned"));
+    assert.ok(report.manualActions.some((step) => step.action === "repair_profile_registry"));
+    await assert.rejects(fs.access(configPath));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile recovery returns clear next actions when auto execution is disabled", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-recover-manual-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const manualRecovery = true;\n", "utf8");
+
+  try {
+    const report = await service.recoverProfileIndex({
+      projectRoot,
+      autoRepair: false
+    });
+
+    assert.equal(report.resolved, false);
+    assert.equal(report.failedAction, null);
+    assert.equal(report.finalValidation.recommendedAction, "repair_profile_registry");
+    assert.ok(report.steps.some((step) => step.action === "repair_profile_registry" && step.status === "skipped"));
+    assert.ok(report.manualActions.some((step) => step.action === "repair_profile_registry"));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile recovery safe strategy repairs metadata but leaves indexing for a manual next step", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-recover-safe-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const safeStrategy = true;\n", "utf8");
+
+  try {
+    const report = await service.recoverProfileIndex({
+      projectRoot,
+      strategy: "safe"
+    });
+
+    assert.equal(report.options.strategy, "safe");
+    assert.equal(report.options.autoRepair, true);
+    assert.equal(report.options.autoRebuild, false);
+    assert.equal(report.options.autoIndex, false);
+    assert.equal(report.resolved, false);
+    assert.equal(report.finalValidation.recommendedAction, "index_project");
+    assert.ok(report.steps.some((step) => step.action === "repair_profile_registry" && step.status === "executed"));
+    assert.ok(report.steps.some((step) => step.action === "index_project" && step.status === "skipped"));
+    assert.ok(report.manualActions.some((step) => step.action === "index_project"));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile recovery aggressive strategy enables forced indexing defaults", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-recover-aggressive-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const aggressiveStrategy = true;\n", "utf8");
+
+  try {
+    await ensureProjectScaffold(projectRoot);
+
+    const report = await service.recoverProfileIndex({
+      projectRoot,
+      strategy: "aggressive"
+    });
+
+    assert.equal(report.options.strategy, "aggressive");
+    assert.equal(report.options.forceIndex, true);
+    assert.equal(report.options.autoIndex, true);
+    assert.equal(report.resolved, true);
+    assert.equal(report.finalValidation.recommendedAction, "none");
+    assert.ok(report.steps.some((step) => step.action === "index_project" && step.status === "executed"));
+    assert.ok((report.indexProjectResult?.indexedFiles ?? 0) >= 1);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile recovery classifies missing embedding api key failures with operator guidance", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-recover-missing-api-key-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+  const previousApiKey = process.env.OPENAI_API_KEY;
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const remoteProfile = true;\n", "utf8");
+
+  try {
+    delete process.env.OPENAI_API_KEY;
+    const initialConfig = await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+    await writeConfig(projectRoot, {
+      ...initialConfig,
+      activeEmbeddingProfile: "embedding-cheap"
+    });
+
+    const report = await service.recoverProfileIndex({
+      projectRoot,
+      strategy: "standard"
+    });
+
+    assert.equal(report.failedAction, "rebuild_active_profile_index");
+    assert.equal(report.failure?.code, "missing_embedding_api_key");
+    assert.equal(report.failure?.envVarName, "OPENAI_API_KEY");
+    assert.ok(report.steps.some((step) => step.failureCode === "missing_embedding_api_key"));
+    assert.ok(report.manualActions.some((step) => step.action === "set_environment_variable"));
+    assert.ok(report.manualActions.some((step) => step.action === "review_project_config"));
+  } finally {
+    if (previousApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousApiKey;
+    }
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
