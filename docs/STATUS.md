@@ -7,6 +7,7 @@ This file is the clean status snapshot for the current build.
 - Core V1 product shape: done
 - Refactor foundation: done
 - Write-time memory distillation: done
+- Flash handoff layer: done
 - Light-wave task context planning: done
 - Intent subtype planning: done
 - Explain summary layer: done
@@ -86,6 +87,8 @@ For future maintainers, the main extension map lives in:
 - `recover_profile_index` now also supports dry-run planning plus explicit manual next-step suggestions for IDE operators
 - `recover_profile_index` now supports `safe / standard / aggressive` strategy templates while still allowing explicit flag overrides
 - `recover_profile_index` now returns structured failure codes and manual operator guidance for missing API keys, bad profile config, and provider-side rebuild failures
+- `flash_checkpoint`, `flash_resume`, and `flash_clear` now provide one lightweight session-to-session handoff layer under `.mindkeeper/flash`
+- `context_for_task` now reads fresh flash checkpoints automatically and treats flash-touched files as related restart hints
 - Thin facade entry at `src/mindkeeper.ts` with the real service implementation in `src/mindkeeper-facade.ts`
 - Durable memory writes extracted into `src/app/memory-write-service.ts`
 - Project indexing and document persistence extracted into `src/app/project-index-service.ts`

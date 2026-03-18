@@ -22,6 +22,7 @@ async function main(): Promise<void> {
     phaseStatus: {
       refactorFoundation: "done",
       memoryDistillation: "done",
+      flashHandoff: "done",
       lightWaveRecall: "done",
       fastDeepRecall: "done",
       lightweightGraph: "done",
@@ -50,6 +51,7 @@ async function main(): Promise<void> {
       projectIndex: "src/app/project-index-service.ts",
       recall: "src/app/recall-service.ts",
       session: "src/app/session-service.ts",
+      flash: "src/app/flash-service.ts",
       hygiene: "src/app/hygiene-service.ts",
       source: "src/app/source-service.ts"
     },

@@ -20,6 +20,7 @@ This file tracks what is already live in the current project and what still belo
 - adaptive deep-wave planning that opens recent history only when the task or confidence signals justify it
 - `recallFast` and `recallDeep`
 - Write-time session distillation into `discard / diary / decision / knowledge`
+- Flash checkpoints for end-of-session handoff and next-session resume
 - Source hygiene with disable/enable, feedback, stale archiving, conflict detection, and consolidation
 - Memory health review that summarizes stale, noisy, cold, and conflicting cleanup hotspots
 - Superseded decision marking that cools and optionally disables outdated decisions under one canonical policy

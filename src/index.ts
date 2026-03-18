@@ -39,6 +39,7 @@ server.tool(
                 ".mindkeeper/knowledge",
                 ".mindkeeper/diary",
                 ".mindkeeper/decisions",
+                ".mindkeeper/flash",
                 ".mindkeeper/canonical",
                 `.mindkeeper/indexes/${config.activeEmbeddingProfile}`,
                 ".mindkeeper/vector"
@@ -548,6 +549,101 @@ server.tool(
       tags
     });
 
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
+  "flash_checkpoint",
+  "Store one lightweight work-state checkpoint so the next IDE session can resume the last goal, status, blockers, and next steps quickly.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    title: z.string().min(1).describe("Short title for this work checkpoint."),
+    session_goal: z.string().min(1).describe("The main goal of the just-finished work session."),
+    current_status: z.string().min(1).describe("Where the work currently stands."),
+    working_memory: z.string().optional().describe("Optional active reasoning or temporary context worth carrying forward."),
+    next_steps: z.array(z.string()).optional().describe("Concrete next steps for the next session."),
+    blockers: z.array(z.string()).optional().describe("Open blockers or risks."),
+    open_questions: z.array(z.string()).optional().describe("Questions that still need answers."),
+    branch_name: z.string().optional().describe("Current branch name if known."),
+    touched_files: z.array(z.string()).optional().describe("Files touched or likely to matter next time."),
+    important_commands: z.array(z.string()).optional().describe("Useful commands to resume the workflow."),
+    tags: z.array(z.string()).optional().describe("Optional tags for this checkpoint.")
+  },
+  async ({
+    project_root,
+    title,
+    session_goal,
+    current_status,
+    working_memory,
+    next_steps,
+    blockers,
+    open_questions,
+    branch_name,
+    touched_files,
+    important_commands,
+    tags
+  }) => {
+    const result = await service.flashCheckpoint({
+      projectRoot: project_root,
+      title,
+      sessionGoal: session_goal,
+      currentStatus: current_status,
+      workingMemory: working_memory,
+      nextSteps: next_steps,
+      blockers,
+      openQuestions: open_questions,
+      branchName: branch_name,
+      touchedFiles: touched_files,
+      importantCommands: important_commands,
+      tags
+    });
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
+  "flash_resume",
+  "Load the active flash checkpoint for a project so the next IDE session can resume the previous work state quickly.",
+  {
+    project_root: z.string().describe("Absolute path to the project root.")
+  },
+  async ({ project_root }) => {
+    const result = await service.flashResume(project_root);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
+  "flash_clear",
+  "Clear the active flash checkpoint after the current work state has been fully resumed or superseded.",
+  {
+    project_root: z.string().describe("Absolute path to the project root.")
+  },
+  async ({ project_root }) => {
+    const result = await service.flashClear(project_root);
     return {
       content: [
         {

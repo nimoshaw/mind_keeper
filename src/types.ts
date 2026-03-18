@@ -14,6 +14,7 @@ export type SourceFeedbackSignal = "helpful" | "noisy";
 export type MemoryTier = "working" | "stable" | "project" | "cold";
 export type DistilledMemoryKind = "discard" | "diary" | "decision" | "knowledge";
 export type MemoryEdgeType = "module" | "symbol" | "path" | "tag" | "branch" | "language";
+export type FlashCheckpointFreshness = "fresh" | "recent" | "stale";
 
 export type EmbeddingProfileKind = "hash" | "openai_compatible";
 export type RerankerProfileKind = "heuristic" | "openai_compatible";
@@ -529,4 +530,63 @@ export interface RateSourceInput {
   docId?: string;
   path?: string;
   reason?: string;
+}
+
+export interface FlashCheckpointInput {
+  projectRoot: string;
+  title: string;
+  sessionGoal: string;
+  currentStatus: string;
+  workingMemory?: string;
+  nextSteps?: string[];
+  blockers?: string[];
+  openQuestions?: string[];
+  branchName?: string;
+  touchedFiles?: string[];
+  importantCommands?: string[];
+  tags?: string[];
+}
+
+export interface FlashCheckpointRecord {
+  id: string;
+  title: string;
+  sessionGoal: string;
+  currentStatus: string;
+  workingMemory: string;
+  nextSteps: string[];
+  blockers: string[];
+  openQuestions: string[];
+  branchName: string | null;
+  touchedFiles: string[];
+  importantCommands: string[];
+  tags: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface FlashCheckpointResult {
+  projectRoot: string;
+  activePath: string;
+  historyPath: string;
+  checkpoint: FlashCheckpointRecord;
+  summary: string;
+}
+
+export interface FlashResumeReport {
+  projectRoot: string;
+  found: boolean;
+  activePath: string;
+  checkpoint: FlashCheckpointRecord | null;
+  freshness: FlashCheckpointFreshness | null;
+  ageHours: number | null;
+  shouldInject: boolean;
+  resumePrompt: string | null;
+  summary: string;
+}
+
+export interface FlashClearReport {
+  projectRoot: string;
+  cleared: boolean;
+  activePath: string;
+  summary: string;
 }

@@ -33,6 +33,7 @@ The original project files stay where they are. Mind Keeper stores index artifac
     diary/
     decisions/
     imports/
+    flash/
     manifests/
     vector/
     cache/
@@ -44,6 +45,7 @@ Meaning:
 - `diary/`: session and progress memory
 - `decisions/`: durable project decisions
 - `imports/`: manually imported references
+- `flash/`: active work-state handoff for fast resume on the next session
 - `manifests/`: indexing summaries, benchmark snapshots, status snapshots
 - `vector/`: SQLite data, chunk metadata, embeddings, retrieval artifacts
 - `cache/`: temporary extraction outputs
@@ -55,6 +57,7 @@ Implemented today:
 - project-scoped `.mindkeeper`
 - incremental indexing with manifests
 - write-time memory distillation
+- flash handoff checkpoints for session-to-session resume
 - light-wave task context recall
 - intent subtype planning for bug fixes, migrations, API changes, docs, and architecture review
 - explainable task-context summaries that tell IDE clients why memory was chosen or suppressed
@@ -211,6 +214,15 @@ The recommended first-run workflow is:
 4. `context_for_task`
 5. `recall`
 
+The recommended handoff workflow between two work sessions is:
+
+1. `flash_checkpoint`
+2. stop work or switch away from the project
+3. next time, call `flash_resume`
+4. then call `context_for_task`
+
+That gives Mind Keeper one lightweight "what was I doing and what should I do next" layer before deeper recall.
+
 When switching embedding models or handing a project to another agent, use:
 
 1. `validate_profile_index`
@@ -228,6 +240,42 @@ Recovery strategies:
 
 When recovery fails, the report now includes a stable `failure.code` plus `manualActions`.
 This is intended for IDE clients to show concrete next steps like reviewing `.mindkeeper/config.toml` or setting a missing API key environment variable.
+
+When you finish a work block, store one flash checkpoint.
+Good flash checkpoints are short and operational:
+
+- `session_goal`: what this session was trying to accomplish
+- `current_status`: where the work stopped
+- `working_memory`: temporary reasoning worth carrying into the next session
+- `next_steps`: the first actions to take next time
+- `blockers`: what could stall the restart
+- `touched_files`: files most likely to matter when resuming
+
+Typical flash checkpoint payload:
+
+```json
+{
+  "project_root": "D:/projects/mind_keeper",
+  "title": "Manifest cleanup handoff",
+  "session_goal": "Finish the manifest cleanup pass and preserve useful diary notes.",
+  "current_status": "Index rebuild is done; cleanup policy still needs one final review.",
+  "working_memory": "The risk is auto-archiving notes that should only be disabled.",
+  "next_steps": [
+    "Review cleanup recommendations",
+    "Run apply_memory_cleanup_plan with safe actions only"
+  ],
+  "blockers": [
+    "Need to confirm the stale threshold"
+  ],
+  "touched_files": [
+    "D:/projects/mind_keeper/src/app/hygiene-service.ts",
+    "D:/projects/mind_keeper/README.md"
+  ]
+}
+```
+
+Next time you return, `flash_resume` returns the active checkpoint plus a ready-to-inject `resumePrompt`.
+`context_for_task` also reads a fresh flash checkpoint automatically and treats flash-touched files as related hints.
 
 Typical MCP server command:
 
@@ -278,6 +326,9 @@ Development-time MCP command:
 - `index_project`
 - `remember`
 - `remember_decision`
+- `flash_checkpoint`
+- `flash_resume`
+- `flash_clear`
 - `recall`
 - `recall_fast`
 - `recall_deep`
@@ -316,6 +367,7 @@ The codebase is now split into focused layers instead of one giant service:
 - project indexing: [src/app/project-index-service.ts](/D:/projects/mind_keeper/src/app/project-index-service.ts)
 - recall orchestration: [src/app/recall-service.ts](/D:/projects/mind_keeper/src/app/recall-service.ts)
 - session distillation: [src/app/session-service.ts](/D:/projects/mind_keeper/src/app/session-service.ts)
+- flash resume and handoff: [src/app/flash-service.ts](/D:/projects/mind_keeper/src/app/flash-service.ts)
 - hygiene and governance: [src/app/hygiene-service.ts](/D:/projects/mind_keeper/src/app/hygiene-service.ts)
 - source controls: [src/app/source-service.ts](/D:/projects/mind_keeper/src/app/source-service.ts)
 

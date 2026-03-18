@@ -9,6 +9,7 @@ const SUBDIRS = [
   "diary",
   "decisions",
   "imports",
+  "flash",
   "canonical",
   "indexes",
   "manifests",

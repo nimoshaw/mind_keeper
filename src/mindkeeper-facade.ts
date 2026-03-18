@@ -1,6 +1,7 @@
 import { HygieneService } from "./app/hygiene-service.js";
 import { inspectMemoryAccessSurface } from "./access-surface.js";
 import { CanonicalService } from "./app/canonical-service.js";
+import { FlashService } from "./app/flash-service.js";
 import { MemoryWriteService } from "./app/memory-write-service.js";
 import { ProfileOpsService } from "./app/profile-ops-service.js";
 import { ProjectIndexService } from "./app/project-index-service.js";
@@ -24,6 +25,7 @@ import type {
 export class MindKeeperService {
   private readonly embeddingService = new EmbeddingService();
   private readonly canonicalService = new CanonicalService();
+  private readonly flashService = new FlashService();
   private readonly projectIndexService = new ProjectIndexService(this.embeddingService);
   private readonly profileOpsService = new ProfileOpsService(this.projectIndexService);
   private readonly memoryWriteService = new MemoryWriteService(this.projectIndexService);
@@ -52,6 +54,18 @@ export class MindKeeperService {
 
   async suggestSessionMemory(input: SuggestSessionMemoryInput) {
     return this.sessionService.suggestSessionMemory(input);
+  }
+
+  async flashCheckpoint(input: Parameters<FlashService["checkpoint"]>[0]) {
+    return this.flashService.checkpoint(input);
+  }
+
+  async flashResume(projectRoot: string) {
+    return this.flashService.resume(projectRoot);
+  }
+
+  async flashClear(projectRoot: string) {
+    return this.flashService.clear(projectRoot);
   }
 
   async recall(input: RecallInput) {

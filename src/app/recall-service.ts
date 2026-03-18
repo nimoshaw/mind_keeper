@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { buildResumePrompt, classifyFreshness, readFlashCheckpoint } from "./flash-service.js";
 import { loadConfig } from "../config.js";
 import { cosineSimilarity, EmbeddingService, normalize } from "../embedding.js";
 import {
@@ -23,6 +24,7 @@ import type {
   ChunkRecord,
   ContextForTaskInput,
   ContextTaskStage,
+  FlashCheckpointRecord,
   MemorySourceKind,
   RecallInput,
   RerankerProfile,
@@ -200,10 +202,22 @@ export class RecallService {
       usedBranchGate: boolean;
       usedDiagnosticsGate: boolean;
       usedRelatedFileGate: boolean;
+      usedFlashGate: boolean;
       symbol: string | null;
       language: string | null;
       branchName: string | null;
       relatedFiles: string[];
+      flash: {
+        loaded: boolean;
+        freshness: "fresh" | "recent" | "stale" | null;
+        updatedAt: number | null;
+        title: string | null;
+        branchName: string | null;
+        touchedFiles: string[];
+        nextSteps: string[];
+        blockers: string[];
+        resumePrompt: string | null;
+      };
       diagnosticFiles: string[];
       diagnosticSymbols: string[];
       budget: number;
@@ -310,6 +324,11 @@ export class RecallService {
     const config = await ensureProjectScaffold(input.projectRoot);
     const budget = input.topK ?? Math.min(6, config.retrieval.topK);
     const minScore = Math.max(config.retrieval.similarityThreshold, 0.25);
+    const flashCheckpoint = await readFlashCheckpoint(input.projectRoot);
+    const flashAgeHours = flashCheckpoint ? Math.max(0, (Date.now() - flashCheckpoint.updatedAt) / 3_600_000) : null;
+    const flashFreshness = flashAgeHours === null ? null : classifyFreshness(flashAgeHours);
+    const activeFlash = flashCheckpoint && flashFreshness !== "stale" ? flashCheckpoint : null;
+    const flashTouchedFiles = activeFlash?.touchedFiles ?? [];
     const currentFileName = input.currentFile ? path.basename(input.currentFile) : undefined;
     const relativeFile = input.currentFile ? relativeToProject(input.projectRoot, input.currentFile) : undefined;
     const moduleName = relativeFile ? topLevelModule(relativeFile) ?? undefined : undefined;
@@ -324,7 +343,7 @@ export class RecallService {
     );
     const symbol = symbolCandidates[0] ?? undefined;
     const branchName = input.branchName?.trim() || (await detectGitBranch(input.projectRoot)) || undefined;
-    const relatedFiles = dedupeStrings([...(input.relatedFiles ?? []), ...diagnosticHints.files]);
+    const relatedFiles = dedupeStrings([...(input.relatedFiles ?? []), ...diagnosticHints.files, ...flashTouchedFiles]);
     const taskStage = inferTaskStage(input);
     const intentSubtype = inferTaskIntentSubtype(input, taskStage);
     const stagePolicy = resolveTaskStagePolicy(
@@ -376,7 +395,8 @@ export class RecallService {
       branchName,
       relatedFiles,
       diagnosticFiles: diagnosticHints.files,
-      diagnosticSymbols: diagnosticHints.symbols
+      diagnosticSymbols: diagnosticHints.symbols,
+      flashCheckpoint: activeFlash
     });
 
     const stableWave = wavePlan[1];
@@ -666,6 +686,16 @@ export class RecallService {
       fallbackUsed,
       stopReason
     });
+    if (activeFlash) {
+      explainPanel.highlights.unshift({
+        kind: "priority",
+        title: "Flash resume context loaded",
+        detail: `Resuming from ${activeFlash.title} with ${activeFlash.nextSteps.length} next steps.`
+      });
+      if (activeFlash.blockers.length > 0) {
+        explainPanel.nextActions.unshift(`Resolve flash blocker: ${activeFlash.blockers[0]}`);
+      }
+    }
 
     return {
       query,
@@ -679,6 +709,7 @@ export class RecallService {
         usedBranchGate: Boolean(branchName),
         usedDiagnosticsGate: Boolean(input.diagnostics?.trim()),
         usedRelatedFileGate: relatedFileNames.length > 0,
+        usedFlashGate: Boolean(activeFlash),
         intentType: intentPlan.intentType,
         intentSubtype: intentPlan.intentSubtype,
         intentAnchors: intentPlan.anchors,
@@ -706,6 +737,17 @@ export class RecallService {
         language: language ?? null,
         branchName: branchName ?? null,
         relatedFiles: relatedFiles.map((item) => relativeOrOriginal(input.projectRoot, item)),
+        flash: {
+          loaded: Boolean(flashCheckpoint),
+          freshness: flashFreshness,
+          updatedAt: flashCheckpoint?.updatedAt ?? null,
+          title: flashCheckpoint?.title ?? null,
+          branchName: flashCheckpoint?.branchName ?? null,
+          touchedFiles: flashTouchedFiles.map((item) => relativeOrOriginal(input.projectRoot, item)),
+          nextSteps: flashCheckpoint?.nextSteps ?? [],
+          blockers: flashCheckpoint?.blockers ?? [],
+          resumePrompt: flashCheckpoint ? buildResumePrompt(flashCheckpoint, flashFreshness ?? "recent") : null
+        },
         diagnosticFiles: diagnosticHints.files.map((item) => relativeOrOriginal(input.projectRoot, item)),
         diagnosticSymbols: symbolCandidates,
         budget,
@@ -827,6 +869,7 @@ function buildTaskQuery(
     relatedFiles?: string[];
     diagnosticFiles?: string[];
     diagnosticSymbols?: string[];
+    flashCheckpoint?: FlashCheckpointRecord | null;
   }
 ): string {
   const parts = [`task: ${input.task.trim()}`];
@@ -869,6 +912,23 @@ function buildTaskQuery(
 
   if (hints?.diagnosticSymbols?.length) {
     parts.push(`diagnostic_symbols: ${hints.diagnosticSymbols.join(", ")}`);
+  }
+
+  if (hints?.flashCheckpoint) {
+    parts.push(`flash_goal: ${truncate(hints.flashCheckpoint.sessionGoal, 240)}`);
+    parts.push(`flash_status: ${truncate(hints.flashCheckpoint.currentStatus, 240)}`);
+
+    if (hints.flashCheckpoint.workingMemory) {
+      parts.push(`flash_memory: ${truncate(hints.flashCheckpoint.workingMemory, 280)}`);
+    }
+
+    if (hints.flashCheckpoint.nextSteps.length) {
+      parts.push(`flash_next_steps: ${hints.flashCheckpoint.nextSteps.slice(0, 4).join(" | ")}`);
+    }
+
+    if (hints.flashCheckpoint.blockers.length) {
+      parts.push(`flash_blockers: ${hints.flashCheckpoint.blockers.slice(0, 3).join(" | ")}`);
+    }
   }
 
   return parts.join("\n");
