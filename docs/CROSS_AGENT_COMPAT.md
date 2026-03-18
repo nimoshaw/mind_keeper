@@ -295,6 +295,7 @@ Current state:
 - `inspect_canonical_memory` and `export_canonical_memory` now expose read-only and export-grade canonical views without forcing agents to read vector internals
 - `validate_profile_index` now gives operators a clean preflight for reuse, rebuild, or registry repair before they hand the project to another agent or switch embedding profiles
 - `rebuild_active_profile_index` now gives operators one safe way to re-embed canonical memory files and current project files after a profile switch
+- `repair_profile_registry` now restores the minimum config and descriptor set before validation or rebuild, instead of forcing operators to recreate those files by hand
 
 ## Operational Rules
 

@@ -102,6 +102,15 @@ export interface ActiveProfileIndexRebuildReport {
   validationAfter: ProfileIndexValidationReport;
 }
 
+export interface ProfileRegistryRepairReport {
+  projectRoot: string;
+  createdConfig: boolean;
+  activeProfileName: string;
+  repairedPaths: string[];
+  validationBefore: ProfileIndexValidationReport;
+  validationAfter: ProfileIndexValidationReport;
+}
+
 export interface MemoryAccessSurfaceReport {
   projectRoot: string;
   canonical: {

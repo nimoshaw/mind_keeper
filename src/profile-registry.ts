@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
+import path from "node:path";
 import { buildCanonicalMemoryContractDescriptor } from "./canonical-contract.js";
-import { loadConfig } from "./config.js";
+import { configPath, defaultConfig, loadConfig, writeConfig } from "./config.js";
 import { MindKeeperStorage } from "./storage.js";
 import type {
   ActiveProfileIndexState,
@@ -9,7 +10,8 @@ import type {
   EmbeddingProfile,
   EmbeddingProfileIndexDescriptor,
   MindKeeperConfig,
-  ProfileIndexValidationReport
+  ProfileIndexValidationReport,
+  ProfileRegistryRepairReport
 } from "./types.js";
 import {
   CANONICAL_MEMORY_SCHEMA_VERSION,
@@ -211,6 +213,60 @@ export async function validateActiveProfileIndex(projectRoot: string): Promise<P
   };
 }
 
+export async function repairProfileRegistry(projectRoot: string): Promise<ProfileRegistryRepairReport> {
+  const validationBefore = await validateActiveProfileIndex(projectRoot);
+  const repairedPaths: string[] = [];
+  const filePath = configPath(projectRoot);
+  let createdConfig = false;
+
+  if (!(await pathExists(filePath))) {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await writeConfig(projectRoot, defaultConfig(path.basename(projectRoot)));
+    createdConfig = true;
+    repairedPaths.push(filePath);
+  }
+
+  const config = await loadConfig(projectRoot);
+  const activeProfile = resolveActiveEmbeddingProfile(config);
+  const directories = [
+    canonicalRoot(projectRoot),
+    indexesRoot(projectRoot),
+    profileIndexRoot(projectRoot, activeProfile.name)
+  ];
+
+  for (const directoryPath of directories) {
+    await fs.mkdir(directoryPath, { recursive: true });
+    repairedPaths.push(directoryPath);
+  }
+
+  await writeJsonDescriptor(
+    canonicalSchemaPath(projectRoot),
+    buildCanonicalMemorySchemaDescriptor(),
+    repairedPaths
+  );
+  await writeJsonDescriptor(
+    canonicalContractPath(projectRoot),
+    buildCanonicalMemoryContractDescriptor(),
+    repairedPaths
+  );
+  await writeJsonDescriptor(
+    profileIndexDescriptorPath(projectRoot, activeProfile.name),
+    buildEmbeddingProfileIndexDescriptor(activeProfile),
+    repairedPaths
+  );
+
+  const validationAfter = await validateActiveProfileIndex(projectRoot);
+
+  return {
+    projectRoot,
+    createdConfig,
+    activeProfileName: activeProfile.name,
+    repairedPaths: Array.from(new Set(repairedPaths)),
+    validationBefore,
+    validationAfter
+  };
+}
+
 async function writeJsonIfChanged(filePath: string, data: object): Promise<void> {
   const next = `${JSON.stringify(data, null, 2)}\n`;
 
@@ -254,4 +310,18 @@ async function hasDirectoryEntries(directoryPath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function pathExists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function writeJsonDescriptor(filePath: string, data: object, repairedPaths: string[]): Promise<void> {
+  await writeJsonIfChanged(filePath, data);
+  repairedPaths.push(filePath);
 }

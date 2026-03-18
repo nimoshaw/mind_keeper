@@ -78,6 +78,7 @@ Implemented today:
 - active-profile reuse and rebuild guidance when the embedding profile changes
 - explicit profile-index validation before rebuild or cross-agent reuse
 - safe active-profile rebuild from canonical memory files and the project tree
+- profile-registry repair for missing config or canonical/profile descriptors
 - stable canonical contract descriptor for model-agnostic memory interoperability
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
@@ -176,6 +177,7 @@ Development-time MCP command:
 - `export_canonical_memory`
 - `validate_profile_index`
 - `rebuild_active_profile_index`
+- `repair_profile_registry`
 - `index_project`
 - `remember`
 - `remember_decision`

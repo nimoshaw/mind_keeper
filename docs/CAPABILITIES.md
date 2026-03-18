@@ -41,6 +41,7 @@ This file tracks what is already live in the current project and what still belo
 - Canonical export snapshot for backup and cross-agent reuse without vector internals by default
 - Explicit profile-index validation for reuse, drift, and registry-repair guidance
 - Safe active-profile rebuild after embedding-profile changes without discarding canonical memory
+- Profile-registry repair for missing config, canonical contract files, and active-profile descriptor metadata
 - Benchmark, smoke, and regression coverage
 
 ## Product Shape Today

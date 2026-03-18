@@ -21,6 +21,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
   Validates whether the active embedding profile index is reusable, needs rebuilding, or needs profile-registry repair before cross-agent reuse.
 - `rebuild_active_profile_index`
   Rebuilds the active profile index from canonical memory files and the current project tree after profile drift or deliberate model switches.
+- `repair_profile_registry`
+  Recreates missing Mind Keeper config, canonical descriptors, and active-profile descriptor files so later validation or rebuild steps have a clean base.
 
 ## New Governance Tools
 

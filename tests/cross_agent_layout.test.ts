@@ -9,6 +9,7 @@ import { MindKeeperService } from "../src/mindkeeper.js";
 import {
   inspectActiveProfileIndex,
   inspectCanonicalMemoryContract,
+  repairProfileRegistry,
   validateActiveProfileIndex
 } from "../src/profile-registry.js";
 import { ensureProjectScaffold } from "../src/project.js";
@@ -370,6 +371,52 @@ test("active profile rebuild reindexes canonical sources under the new embedding
     assert.equal(rebuild.validationAfter.activeProfileIndex?.status, "ready");
     assert.ok(rebuild.rebuiltSourceCounts.manual >= 1);
     assert.ok(rebuild.projectIndexResult.indexedFiles >= 1);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile registry repair recreates missing descriptors for the active profile", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-repair-descriptor-"));
+  const service = new MindKeeperService();
+  const srcDir = path.join(projectRoot, "src");
+
+  await fs.mkdir(srcDir, { recursive: true });
+  await fs.writeFile(path.join(srcDir, "memory.ts"), "export const repairable = true;\n", "utf8");
+
+  try {
+    await ensureProjectScaffold(projectRoot);
+    await service.indexProject(projectRoot, { force: true });
+    const descriptorPath = path.join(projectRoot, ".mindkeeper", "indexes", "hash-local", "profile.json");
+    await fs.rm(descriptorPath, { force: true });
+
+    const before = await validateActiveProfileIndex(projectRoot);
+    assert.equal(before.recommendedAction, "rebuild_active_profile_index");
+    assert.ok(before.issues.includes("missing_descriptor"));
+
+    const repair = await repairProfileRegistry(projectRoot);
+    assert.equal(repair.createdConfig, false);
+    assert.equal(repair.activeProfileName, "hash-local");
+    assert.ok(repair.repairedPaths.includes(descriptorPath));
+    assert.equal(repair.validationAfter.activeProfileIndex?.descriptorPresent, true);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("profile registry repair recreates a missing config and canonical metadata", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-profile-repair-config-"));
+
+  try {
+    const repair = await repairProfileRegistry(projectRoot);
+    const createdConfigPath = path.join(projectRoot, ".mindkeeper", "config.toml");
+    const contractPath = path.join(projectRoot, ".mindkeeper", "canonical", "contract.json");
+
+    assert.equal(repair.createdConfig, true);
+    assert.equal(repair.validationBefore.recommendedAction, "repair_profile_registry");
+    assert.ok(repair.repairedPaths.includes(createdConfigPath));
+    assert.ok(repair.repairedPaths.includes(contractPath));
+    assert.equal(repair.validationAfter.configPresent, true);
   } finally {
     await fs.rm(projectRoot, { recursive: true, force: true });
   }

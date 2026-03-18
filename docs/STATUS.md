@@ -25,6 +25,7 @@ This file is the clean status snapshot for the current build.
 - Canonical export surface: done
 - Profile-index validation surface: done
 - Active-profile rebuild surface: done
+- Profile-registry repair surface: done
 - Conflict-aware wave gating: done
 - Adaptive deep-wave triggering: done
 - Fast/deep recall split: done
@@ -75,6 +76,7 @@ For future maintainers, the main extension map lives in:
 - `export_canonical_memory` now emits a reusable canonical snapshot without exposing vector internals by default
 - `validate_profile_index` now tells operators whether the active profile is reusable, empty, drifted, or needs registry repair before rebuild
 - `rebuild_active_profile_index` now rebuilds manual memory partitions plus the current project tree under the new active embedding profile
+- `repair_profile_registry` now recreates missing config, canonical descriptors, and active-profile descriptor files without touching stored memory content
 - Thin facade entry at `src/mindkeeper.ts` with the real service implementation in `src/mindkeeper-facade.ts`
 - Durable memory writes extracted into `src/app/memory-write-service.ts`
 - Project indexing and document persistence extracted into `src/app/project-index-service.ts`

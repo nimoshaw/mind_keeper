@@ -33,6 +33,7 @@ async function main(): Promise<void> {
       crossAgentCompatibilityCanonicalExport: "done",
       crossAgentCompatibilityProfileValidation: "done",
       crossAgentCompatibilityProfileRebuild: "done",
+      crossAgentCompatibilityProfileRepair: "done",
       releaseProductization: "done"
     },
     commands: {
@@ -69,6 +70,7 @@ async function main(): Promise<void> {
       canonicalExport: "safe-snapshot-without-vector-internals",
       profileValidation: "explicit-reuse-rebuild-repair-guidance",
       profileRebuild: "safe-active-profile-reembedding-path",
+      profileRepair: "repair-missing-config-and-descriptors",
       runtimeProfileMode: "single-active-profile",
       currentCompatibilityTrack: "storage-boundary-refinement"
     },

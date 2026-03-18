@@ -167,6 +167,25 @@ server.tool(
 );
 
 server.tool(
+  "repair_profile_registry",
+  "Repair missing Mind Keeper config, canonical descriptors, and the active profile descriptor without changing stored memory content.",
+  {
+    project_root: z.string().describe("Absolute path to the project root.")
+  },
+  async ({ project_root }) => {
+    const result = await service.repairProfileRegistry(project_root);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "remember",
   "Store a durable manual memory, decision, diary entry, or imported note inside .mindkeeper and index it immediately.",
   {
