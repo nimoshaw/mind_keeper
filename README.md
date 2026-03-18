@@ -93,6 +93,15 @@ Parser-backed symbol extraction currently covers:
 - Rust
 - Java
 
+## Current Design Docs
+
+Use these first when you need to re-enter the project quickly:
+
+- product and architecture status: [docs/STATUS.md](/D:/projects/mind_keeper/docs/STATUS.md)
+- capability matrix: [docs/CAPABILITIES.md](/D:/projects/mind_keeper/docs/CAPABILITIES.md)
+- extension map: [docs/EXTENSION_POINTS.md](/D:/projects/mind_keeper/docs/EXTENSION_POINTS.md)
+- cross-agent compatibility plan: [docs/CROSS_AGENT_COMPAT.md](/D:/projects/mind_keeper/docs/CROSS_AGENT_COMPAT.md)
+
 ## Quick Start
 
 Requirements:

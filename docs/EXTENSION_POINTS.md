@@ -40,6 +40,30 @@ Keep in mind:
 - one project partition must keep one embedding dimension
 - model changes should trigger reindex guidance instead of silent drift
 
+## Prepare Cross-Agent Compatibility
+
+Primary docs:
+
+- `docs/CROSS_AGENT_COMPAT.md`
+
+Likely primary files when implementation starts:
+
+- `src/storage.ts`
+- one future canonical repository under `src/app/` or `src/`
+- one future profile registry under `src/app/` or `src/`
+
+What to add:
+
+- a clean separation between canonical memory truth and profile-specific index artifacts
+- explicit profile identity for index ownership
+- documented schema versioning for reusable memory metadata
+
+Keep in mind:
+
+- do not push profile awareness up into wave planning
+- do not let `context_for_task` query multiple embedding profiles at runtime
+- index artifacts should stay rebuildable cache, not product truth
+
 ## Add A New Reranker Profile
 
 Primary files:

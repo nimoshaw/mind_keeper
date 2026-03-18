@@ -54,6 +54,7 @@ npm run status:save
 For future maintainers, the main extension map lives in:
 
 - [docs/EXTENSION_POINTS.md](/D:/projects/mind_keeper/docs/EXTENSION_POINTS.md)
+- [docs/CROSS_AGENT_COMPAT.md](/D:/projects/mind_keeper/docs/CROSS_AGENT_COMPAT.md)
 
 ## What Is Stable Today
 
@@ -122,6 +123,7 @@ For release handoff, the current one-command gate is:
 - Auto-apply consolidation after suggestion review
 - Richer IDE-side presentation for wave and relation explain output
 - Optional heavier rerank modes when latency budget allows
+- Storage-boundary refinement for future cross-agent compatibility without changing wave behavior
 
 ## Positioning
 

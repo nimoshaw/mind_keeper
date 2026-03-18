@@ -50,6 +50,7 @@ This file tracks what is already live in the current project and what still belo
 - Stronger relation-aware planning between decisions and related symbols/files
 - Heavier cross-encoder rerank strategies when latency budget allows
 - Richer IDE UI affordances for wave and relation explain output
+- Canonical-memory versus profile-index separation for future cross-agent compatibility
 
 ## Current Bias
 
