@@ -307,6 +307,15 @@ async function main(): Promise<void> {
     );
     assert.equal(conflictVerification.verified, true);
 
+    const superseded = await timed("mark_superseded", steps, async () =>
+      service.markSuperseded({
+        projectRoot,
+        canonicalDocId: executedConflictResolution.docId ?? "",
+        supersededDocIds: conflictPlans[0]?.consolidateInput.docIds ?? []
+      })
+    );
+    assert.ok(superseded.supersededCount >= 1);
+
     const conflictFollowup = await timed("suggest_conflict_resolution_followup", steps, async () =>
       service.suggestConflictResolutionFollowup({
         projectRoot,
@@ -374,6 +383,7 @@ async function main(): Promise<void> {
         conflictPlanCount: conflictPlans.length,
         conflictValidationWarnings: conflictValidation.warnings.length,
         executedConflictResolutionDocId: executedConflictResolution.docId,
+        supersededMarkedCount: superseded.supersededCount,
         conflictVerificationWarnings: conflictVerification.warnings.length,
         conflictFollowupAction: conflictFollowup.recommendedAction,
         executedConflictFollowupAction: executedConflictFollowup.action,

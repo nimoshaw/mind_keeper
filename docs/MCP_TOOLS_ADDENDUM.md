@@ -13,6 +13,8 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 
 - `review_memory_health`
   Scans the current project memory store and summarizes the biggest cleanup hotspots, including stale diary/imported notes, noisy active memories, and active decision conflicts.
+- `mark_superseded`
+  Marks older decisions as superseded by a canonical decision, optionally disabling them and cooling them into the cold tier immediately.
 - `archive_stale_memories`
   Moves old diary or imported memories into the `cold` tier instead of leaving them in hot working recall.
 - `list_conflicts`
@@ -51,11 +53,12 @@ This addendum captures the tools added after the earlier MCP tool guide was writ
 9. Use `plan_conflict_resolutions` when you want a ready-to-run template for the actual resolution step.
 10. Use `validate_conflict_resolution_plan` before execution when you want a quick safety check.
 11. Use `execute_conflict_resolution_plan` after review when you are ready to publish the canonical decision and optionally disable the old ones.
-12. Use `verify_conflict_resolution_execution` right after execution to confirm the canonical entry and superseded states are correct.
-13. Use `suggest_conflict_resolution_followup` to decide whether the old conflicting entries should be disabled, archived, or left as-is.
-14. Use `execute_conflict_resolution_followup` to carry out that cleanup action without manually stitching together extra hygiene calls.
-15. Use `suggest_consolidations` to find merge candidates before touching stored memories.
-16. Use `consolidate_memories` once you agree with one of the suggestions.
+12. Use `mark_superseded` when you want to explicitly cool and disable older decisions under that canonical policy.
+13. Use `verify_conflict_resolution_execution` right after execution to confirm the canonical entry and superseded states are correct.
+14. Use `suggest_conflict_resolution_followup` to decide whether the old conflicting entries should be disabled, archived, or left as-is.
+15. Use `execute_conflict_resolution_followup` to carry out that cleanup action without manually stitching together extra hygiene calls.
+16. Use `suggest_consolidations` to find merge candidates before touching stored memories.
+17. Use `consolidate_memories` once you agree with one of the suggestions.
 
 ## Explain Fields You Now See
 

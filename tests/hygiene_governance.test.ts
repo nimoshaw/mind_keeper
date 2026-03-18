@@ -96,6 +96,55 @@ test("reviewMemoryHealth summarizes stale, noisy, and conflicting cleanup hotspo
   }
 });
 
+test("markSuperseded cools and disables superseded decisions under a canonical decision", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-mark-superseded-"));
+  const service = new MindKeeperService();
+
+  try {
+    const oldA = await service.rememberDecision({
+      projectRoot,
+      title: "Prefer sqlite manifests",
+      decision: "Prefer sqlite for manifests and project metadata.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage"]
+    });
+    const oldB = await service.rememberDecision({
+      projectRoot,
+      title: "Do not use sqlite manifests",
+      decision: "Do not use sqlite for manifests and project metadata.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "conflict"]
+    });
+    const canonical = await service.rememberDecision({
+      projectRoot,
+      title: "Canonical conflict-resolution for sqlite manifests",
+      decision: "Canonical conflict-resolution: adopt sqlite for manifests and project metadata.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "canonical", "conflict-resolution"]
+    });
+
+    const marked = await service.markSuperseded({
+      projectRoot,
+      canonicalDocId: canonical.docId,
+      supersededDocIds: [oldA.docId, oldB.docId]
+    });
+
+    assert.equal(marked.updated, true);
+    assert.equal(marked.supersededCount, 2);
+    assert.equal(marked.disabledCount, 2);
+    assert.equal(marked.cooledCount, 2);
+
+    const listed = await service.listSources(projectRoot);
+    const cooled = listed.filter((item) => [oldA.docId, oldB.docId].includes(item.docId));
+    assert.equal(cooled.length, 2);
+    assert.ok(cooled.every((item) => item.isDisabled));
+    assert.ok(cooled.every((item) => item.memoryTier === "cold"));
+    assert.ok(cooled.every((item) => /Superseded by canonical decision/i.test(item.distillReason ?? "")));
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("listConflicts detects opposing decisions on the same subject", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-conflicts-"));
   const service = new MindKeeperService();

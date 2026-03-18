@@ -555,6 +555,37 @@ server.tool(
 );
 
 server.tool(
+  "mark_superseded",
+  "Mark older decision memories as superseded by a canonical decision so they cool down or disable immediately.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    canonical_doc_id: z.string().describe("The canonical decision doc id that now supersedes older guidance."),
+    superseded_doc_ids: z.array(z.string()).min(1).describe("Decision doc ids that should be marked as superseded."),
+    disable_sources: z.boolean().optional().describe("Disable superseded sources after marking them. Defaults to true."),
+    cool_to_cold: z.boolean().optional().describe("Move superseded sources into the cold tier immediately. Defaults to true."),
+    reason: z.string().optional().describe("Optional custom reason to store with the superseded marker.")
+  },
+  async ({ project_root, canonical_doc_id, superseded_doc_ids, disable_sources, cool_to_cold, reason }) => {
+    const result = await service.markSuperseded({
+      projectRoot: project_root,
+      canonicalDocId: canonical_doc_id,
+      supersededDocIds: superseded_doc_ids,
+      disableSources: disable_sources,
+      coolToCold: cool_to_cold,
+      reason
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "list_conflicts",
   "Detect likely conflicts between stored decision memories so teams can reconcile outdated or opposing guidance.",
   {

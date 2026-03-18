@@ -69,6 +69,7 @@ Implemented today:
 - lightweight graph-aware rerank
 - stale archive, conflict listing, and consolidation
 - project memory health review with stale/noisy/conflict cleanup recommendations
+- explicit superseded marking for older decisions after a canonical policy is published
 - conflict clustering for decision drift review
 - conflict-resolution suggestions that bridge drift review into consolidation
 - conflict-resolution plans with ready-to-run consolidation templates

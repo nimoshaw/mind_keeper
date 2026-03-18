@@ -117,6 +117,17 @@ export class MindKeeperService {
     return this.hygieneService.reviewMemoryHealth(input);
   }
 
+  async markSuperseded(input: {
+    projectRoot: string;
+    canonicalDocId: string;
+    supersededDocIds: string[];
+    disableSources?: boolean;
+    coolToCold?: boolean;
+    reason?: string;
+  }) {
+    return this.hygieneService.markSuperseded(input);
+  }
+
   async listConflicts(input: {
     projectRoot: string;
     topK?: number;

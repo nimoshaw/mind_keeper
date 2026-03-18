@@ -238,6 +238,94 @@ export class HygieneService {
     }
   }
 
+  async markSuperseded(input: {
+    projectRoot: string;
+    canonicalDocId: string;
+    supersededDocIds: string[];
+    disableSources?: boolean;
+    coolToCold?: boolean;
+    reason?: string;
+  }): Promise<{
+    updated: boolean;
+    canonicalDocId: string;
+    supersededCount: number;
+    disabledCount: number;
+    cooledCount: number;
+    affectedDocIds: string[];
+    warnings: string[];
+    reason: string;
+  }> {
+    await ensureProjectScaffold(input.projectRoot);
+    const storage = new MindKeeperStorage(input.projectRoot);
+    try {
+      const listed = storage.listSources();
+      const canonical = listed.find((item) => item.docId === input.canonicalDocId);
+      const superseded = listed.filter((item) => input.supersededDocIds.includes(item.docId));
+      const warnings: string[] = [];
+
+      if (!canonical) {
+        return {
+          updated: false,
+          canonicalDocId: input.canonicalDocId,
+          supersededCount: 0,
+          disabledCount: 0,
+          cooledCount: 0,
+          affectedDocIds: [],
+          warnings: ["Canonical decision document was not found."],
+          reason: "No superseded markers were applied because the canonical decision is missing."
+        };
+      }
+
+      const disableSources = input.disableSources ?? true;
+      const coolToCold = input.coolToCold ?? true;
+      let disabledCount = 0;
+      let cooledCount = 0;
+      const affectedDocIds: string[] = [];
+
+      for (const item of superseded) {
+        storage.updateDocumentMetadata({
+          docId: item.docId,
+          memoryTier: coolToCold ? "cold" : "working",
+          stabilityScore: coolToCold ? 0.18 : 0.28,
+          distillConfidence: 0.92,
+          distillReason:
+            input.reason ??
+            `Superseded by canonical decision ${input.canonicalDocId}; keep for audit/history only.`
+        });
+        cooledCount += 1;
+        affectedDocIds.push(item.docId);
+
+        if (disableSources && !item.isDisabled) {
+          storage.disableSource(
+            item.docId,
+            input.reason ?? `Superseded by canonical decision ${input.canonicalDocId}.`
+          );
+          disabledCount += 1;
+        }
+      }
+
+      if (superseded.length === 0) {
+        warnings.push("No superseded documents were found for this canonical decision.");
+      }
+
+      return {
+        updated: superseded.length > 0,
+        canonicalDocId: input.canonicalDocId,
+        supersededCount: superseded.length,
+        disabledCount,
+        cooledCount,
+        affectedDocIds,
+        warnings,
+        reason:
+          superseded.length > 0
+            ? `Marked ${superseded.length} decision memories as superseded by ${input.canonicalDocId}.`
+            : "Nothing was marked as superseded."
+      };
+    } finally {
+      storage.close();
+    }
+  }
+
   async listConflicts(input: {
     projectRoot: string;
     topK?: number;

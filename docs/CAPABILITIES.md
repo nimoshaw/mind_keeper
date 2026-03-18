@@ -20,6 +20,7 @@ This file tracks what is already live in the current project and what still belo
 - Write-time session distillation into `discard / diary / decision / knowledge`
 - Source hygiene with disable/enable, feedback, stale archiving, conflict detection, and consolidation
 - Memory health review that summarizes stale, noisy, cold, and conflicting cleanup hotspots
+- Superseded decision marking that cools and optionally disables outdated decisions under one canonical policy
 - Subject-level conflict clustering for decision drift review
 - Conflict-resolution suggestions that feed directly into canonical decision consolidation
 - Conflict-resolution plans with executable consolidation templates
