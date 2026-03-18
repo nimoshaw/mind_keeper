@@ -135,6 +135,15 @@ export class MindKeeperService {
     return this.hygieneService.suggestMemoryCleanup(input);
   }
 
+  async applyMemoryCleanupPlan(input: {
+    projectRoot: string;
+    olderThanDays?: number;
+    topK?: number;
+    allowedActions?: Array<"archive_stale_memories" | "disable_noisy_sources">;
+  }) {
+    return this.hygieneService.applyMemoryCleanupPlan(input);
+  }
+
   async markSuperseded(input: {
     projectRoot: string;
     canonicalDocId: string;

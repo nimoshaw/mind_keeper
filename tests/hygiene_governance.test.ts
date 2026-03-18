@@ -227,6 +227,70 @@ test("suggestMemoryCleanup combines health hotspots and stale decisions into one
   }
 });
 
+test("applyMemoryCleanupPlan executes safe cleanup actions and skips manual policy review", async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-apply-cleanup-"));
+  const service = new MindKeeperService();
+
+  try {
+    const staleDiary = await service.remember({
+      projectRoot,
+      sourceKind: "diary",
+      title: "Old rollout diary",
+      content: "This old rollout diary should be archived by the cleanup plan.",
+      tags: ["rollout", "history"]
+    });
+    const noisy = await service.remember({
+      projectRoot,
+      sourceKind: "manual",
+      title: "Noisy note",
+      content: "This note has become noisy and should be disabled by the cleanup plan.",
+      tags: ["noise"]
+    });
+    await service.rememberDecision({
+      projectRoot,
+      title: "Prefer sqlite manifests",
+      decision: "Prefer sqlite for manifests and project metadata.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage"]
+    });
+    await service.rememberDecision({
+      projectRoot,
+      title: "Do not use sqlite manifests",
+      decision: "Do not use sqlite for manifests and project metadata.",
+      moduleName: "storage",
+      tags: ["sqlite", "storage", "conflict"]
+    });
+
+    await service.rateSource({ projectRoot, docId: noisy.docId, signal: "noisy" });
+    await service.rateSource({ projectRoot, docId: noisy.docId, signal: "noisy" });
+
+    const storage = new MindKeeperStorage(projectRoot);
+    storage.setDocumentUpdatedAt(staleDiary.docId, Date.now() - 90 * 24 * 60 * 60 * 1000);
+    storage.close();
+
+    const applied = await service.applyMemoryCleanupPlan({
+      projectRoot,
+      olderThanDays: 30,
+      topK: 5
+    });
+
+    assert.ok(applied.summary.executedActions >= 2);
+    assert.ok(applied.summary.archivedCount >= 1);
+    assert.ok(applied.summary.disabledCount >= 1);
+    assert.ok(applied.executed.some((item) => item.action === "archive_stale_memories"));
+    assert.ok(applied.executed.some((item) => item.action === "disable_noisy_sources"));
+    assert.ok(applied.skipped.some((item) => item.action === "review_conflicts"));
+
+    const listed = await service.listSources(projectRoot);
+    const archivedSource = listed.find((item) => item.docId === staleDiary.docId);
+    const disabledSource = listed.find((item) => item.docId === noisy.docId);
+    assert.equal(archivedSource?.memoryTier, "cold");
+    assert.equal(disabledSource?.isDisabled, true);
+  } finally {
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("markSuperseded cools and disables superseded decisions under a canonical decision", async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mind-keeper-mark-superseded-"));
   const service = new MindKeeperService();

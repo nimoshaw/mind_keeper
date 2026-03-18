@@ -328,6 +328,138 @@ export class HygieneService {
     };
   }
 
+  async applyMemoryCleanupPlan(input: {
+    projectRoot: string;
+    olderThanDays?: number;
+    topK?: number;
+    allowedActions?: Array<"archive_stale_memories" | "disable_noisy_sources">;
+  }): Promise<{
+    executed: Array<{
+      action: "archive_stale_memories" | "disable_noisy_sources";
+      count: number;
+      docIds: string[];
+      reason: string;
+    }>;
+    skipped: Array<{
+      action:
+        | "review_conflicts"
+        | "mark_superseded"
+        | "review_stale_decisions"
+        | "healthy";
+      count: number;
+      docIds: string[];
+      reason: string;
+    }>;
+    summary: {
+      plannedActions: number;
+      executedActions: number;
+      skippedActions: number;
+      archivedCount: number;
+      disabledCount: number;
+    };
+  }> {
+    const plan = await this.suggestMemoryCleanup({
+      projectRoot: input.projectRoot,
+      olderThanDays: input.olderThanDays,
+      topK: input.topK
+    });
+    const allowed = new Set(input.allowedActions ?? ["archive_stale_memories", "disable_noisy_sources"]);
+    const executed: Array<{
+      action: "archive_stale_memories" | "disable_noisy_sources";
+      count: number;
+      docIds: string[];
+      reason: string;
+    }> = [];
+    const skipped: Array<{
+      action:
+        | "review_conflicts"
+        | "mark_superseded"
+        | "review_stale_decisions"
+        | "healthy";
+      count: number;
+      docIds: string[];
+      reason: string;
+    }> = [];
+
+    let archivedCount = 0;
+    let disabledCount = 0;
+
+    for (const action of plan.actions) {
+      if (action.action === "archive_stale_memories" && allowed.has(action.action)) {
+        const archived = await this.archiveStaleMemories({
+          projectRoot: input.projectRoot,
+          olderThanDays: input.olderThanDays
+        });
+        archivedCount += archived.archivedCount;
+        executed.push({
+          action: "archive_stale_memories",
+          count: archived.archivedCount,
+          docIds: archived.docIds,
+          reason: archived.reason
+        });
+        continue;
+      }
+
+      if (action.action === "disable_noisy_sources" && allowed.has(action.action)) {
+        await ensureProjectScaffold(input.projectRoot);
+        const storage = new MindKeeperStorage(input.projectRoot);
+        try {
+          const listed = storage.listSources();
+          const targetIds = action.docIds.filter((docId) => {
+            const source = listed.find((item) => item.docId === docId);
+            return Boolean(source) && !source?.isDisabled;
+          });
+          for (const docId of targetIds) {
+            storage.disableSource(docId, "Disabled by apply_memory_cleanup_plan after noisy feedback review.");
+            storage.recordSourceFeedback(docId, "noisy");
+          }
+          disabledCount += targetIds.length;
+          executed.push({
+            action: "disable_noisy_sources",
+            count: targetIds.length,
+            docIds: targetIds,
+            reason:
+              targetIds.length > 0
+                ? `Disabled ${targetIds.length} noisy memory sources from the cleanup plan.`
+                : "No active noisy memory sources needed disabling."
+          });
+        } finally {
+          storage.close();
+        }
+        continue;
+      }
+
+      if (
+        action.action === "review_conflicts" ||
+        action.action === "mark_superseded" ||
+        action.action === "review_stale_decisions" ||
+        action.action === "healthy"
+      ) {
+        skipped.push({
+          action: action.action,
+          count: action.count,
+          docIds: action.docIds,
+          reason:
+            action.action === "healthy"
+              ? action.reason
+              : `${action.reason} This action still requires manual review because it can change policy interpretation.`
+        });
+      }
+    }
+
+    return {
+      executed,
+      skipped,
+      summary: {
+        plannedActions: plan.actions.length,
+        executedActions: executed.length,
+        skippedActions: skipped.length,
+        archivedCount,
+        disabledCount
+      }
+    };
+  }
+
   async suggestConsolidations(input: {
     projectRoot: string;
     topK?: number;

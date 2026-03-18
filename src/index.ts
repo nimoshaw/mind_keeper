@@ -609,6 +609,33 @@ server.tool(
 );
 
 server.tool(
+  "apply_memory_cleanup_plan",
+  "Execute the safe parts of a cleanup plan automatically, such as stale archive and noisy-source disabling, while leaving risky policy changes for manual review.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    older_than_days: z.number().int().positive().max(3650).optional().describe("Treat memories older than this many days as stale candidates."),
+    top_k: z.number().int().positive().max(50).optional().describe("Maximum number of sample doc ids or subjects to include."),
+    allowed_actions: z.array(z.enum(["archive_stale_memories", "disable_noisy_sources"])).optional().describe("Limit which safe cleanup actions can run automatically.")
+  },
+  async ({ project_root, older_than_days, top_k, allowed_actions }) => {
+    const result = await service.applyMemoryCleanupPlan({
+      projectRoot: project_root,
+      olderThanDays: older_than_days,
+      topK: top_k,
+      allowedActions: allowed_actions
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+server.tool(
   "mark_superseded",
   "Mark older decision memories as superseded by a canonical decision so they cool down or disable immediately.",
   {

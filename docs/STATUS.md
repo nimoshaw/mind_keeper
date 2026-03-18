@@ -24,6 +24,7 @@ This file is the clean status snapshot for the current build.
 - Superseded marking: done
 - Stale decision review: done
 - Cleanup planning: done
+- Safe cleanup execution: done
 - Productization docs and release checks: done
 - Suggestion-driven consolidation scanning: done
 - Subject-level conflict clustering: done
@@ -74,6 +75,7 @@ For future maintainers, the main extension map lives in:
 - Governance tools now include a memory health review that prioritizes stale, noisy, and conflicting cleanup work
 - Governance tools can now explicitly mark outdated decisions as superseded by a canonical policy
 - Governance tools now list stale decision candidates and assemble one cleanup plan across health hotspots
+- Governance tools can now execute the safe parts of that cleanup plan automatically
 - Governance tools now bridge conflict clusters into resolution suggestions before consolidation
 - Governance tools now expose executable resolution plans before consolidation
 - Governance tools can now publish one canonical decision from a reviewed resolution plan

@@ -249,6 +249,15 @@ async function main(): Promise<void> {
     );
     assert.ok(cleanupPlan.actions.length >= 1);
 
+    const appliedCleanup = await timed("apply_memory_cleanup_plan", steps, async () =>
+      service.applyMemoryCleanupPlan({
+        projectRoot,
+        olderThanDays: 30,
+        topK: 5
+      })
+    );
+    assert.ok(appliedCleanup.summary.executedActions >= 1);
+
     const conflicts = await timed("list_conflicts", steps, async () =>
       service.listConflicts({
         projectRoot,
@@ -397,6 +406,7 @@ async function main(): Promise<void> {
         deepRecallHits: deepRecall.length,
         archivedCount: archived.archivedCount,
         cleanupActionCount: cleanupPlan.actions.length,
+        cleanupExecutedActions: appliedCleanup.summary.executedActions,
         memoryHealthRecommendations: memoryHealth.recommendations.map((item) => item.action),
         conflictCount: conflicts.length,
         conflictClusterCount: conflictClusters.length,
