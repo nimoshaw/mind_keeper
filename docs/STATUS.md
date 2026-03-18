@@ -93,6 +93,7 @@ For future maintainers, the main extension map lives in:
 - `context_for_task` now reads fresh flash checkpoints automatically and treats flash-touched files as related restart hints
 - `context_for_task` now also refreshes auto flash state in the background with throttled small JSON writes instead of heavy real-time memory recording
 - batch-capable embedding now exists for chunk-heavy indexing paths, creating the first direct implementation step toward the planned VCP-inspired vectorization pipeline
+- remote embedding now also has a persistent project-local cache keyed by profile identity plus normalized content hash, reducing repeat provider calls across index and recall work
 - benchmark output now captures vectorization baseline metrics for indexing, rebuild, remember, and recall operations
 - Thin facade entry at `src/mindkeeper.ts` with the real service implementation in `src/mindkeeper-facade.ts`
 - Durable memory writes extracted into `src/app/memory-write-service.ts`
@@ -125,7 +126,7 @@ For future maintainers, the main extension map lives in:
 - `verify`, benchmark checks, and smoke coverage
 - Win11 portable `exe` packaging with launcher self-check
 - Win11 installer build script with explicit Inno Setup preflight
-- VCP-inspired vectorization pipeline study and migration plan documented for the next performance phase
+- VCP-inspired vectorization pipeline study and migration plan documented for the next performance phase, with batch embedding plus persistent cache already landed
 
 ## What `verify` Covers Directly
 

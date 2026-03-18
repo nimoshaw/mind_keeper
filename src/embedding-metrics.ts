@@ -1,3 +1,4 @@
+import { normalizeEmbeddingText } from "./app/embedding-cache.js";
 import { sha1 } from "./memory-defaults.js";
 import type { EmbeddingProfileKind } from "./types.js";
 
@@ -123,10 +124,6 @@ class EmbeddingMetricsCollector {
 }
 
 export const embeddingMetricsCollector = new EmbeddingMetricsCollector();
-
-function normalizeEmbeddingText(input: string): string {
-  return input.replace(/\s+/g, " ").trim().toLowerCase();
-}
 
 function estimateEmbeddingTokens(input: string): number {
   if (input.length === 0) {

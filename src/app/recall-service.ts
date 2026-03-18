@@ -43,7 +43,7 @@ export class RecallService {
     const rerankerProfile = this.getActiveRerankerProfile(config);
     const topK = input.topK ?? config.retrieval.topK;
     const threshold = input.minScore ?? config.retrieval.similarityThreshold;
-    const queryEmbedding = normalize(await this.embeddingService.embed(profile, input.query));
+    const queryEmbedding = normalize(await this.embeddingService.embed(profile, input.query, { projectRoot: input.projectRoot }));
     const timeWindow = resolveTimeWindow(input);
     const requestedSymbol = normalizeSymbolName(input.symbol);
     const requestedBranch = input.branchName?.trim().toLowerCase() ?? null;

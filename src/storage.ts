@@ -141,6 +141,13 @@ interface RelatedDocRow {
   score: number;
 }
 
+interface EmbeddingCacheRow {
+  profile_key: string;
+  content_hash: string;
+  embedding_json: string;
+  dimensions: number;
+}
+
 export class MindKeeperStorage {
   private readonly db: Database.Database;
 
@@ -221,6 +228,18 @@ export class MindKeeperStorage {
 
       CREATE INDEX IF NOT EXISTS idx_memory_edges_doc_id ON memory_edges(doc_id);
       CREATE INDEX IF NOT EXISTS idx_memory_edges_lookup ON memory_edges(edge_type, target_key);
+
+      CREATE TABLE IF NOT EXISTS embedding_cache (
+        profile_key TEXT NOT NULL,
+        profile_name TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        dimensions INTEGER NOT NULL,
+        embedding_json TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (profile_key, content_hash)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_embedding_cache_profile_name ON embedding_cache(profile_name);
     `);
     this.ensureChunkColumn("language", "TEXT");
     this.ensureChunkColumn("symbol", "TEXT");
@@ -535,6 +554,67 @@ export class MindKeeperStorage {
           targetKey: edge.targetKey,
           weight: edge.weight,
           updatedAt: Date.now()
+        });
+      }
+    });
+
+    tx();
+  }
+
+  getEmbeddingCacheEntries(profileKey: string, contentHashes: string[]): Map<string, number[]> {
+    if (contentHashes.length === 0) {
+      return new Map();
+    }
+
+    const uniqueHashes = Array.from(new Set(contentHashes));
+    const placeholders = uniqueHashes.map(() => "?").join(", ");
+    const stmt = this.db.prepare(`
+      SELECT profile_key, content_hash, embedding_json, dimensions
+      FROM embedding_cache
+      WHERE profile_key = ?
+        AND content_hash IN (${placeholders})
+    `);
+
+    const rows = stmt.all(profileKey, ...uniqueHashes) as EmbeddingCacheRow[];
+    return new Map(rows.map((row) => [row.content_hash, JSON.parse(row.embedding_json) as number[]]));
+  }
+
+  upsertEmbeddingCacheEntries(
+    entries: Array<{
+      profileKey: string;
+      profileName: string;
+      contentHash: string;
+      dimensions: number;
+      embedding: number[];
+    }>
+  ): void {
+    if (entries.length === 0) {
+      return;
+    }
+
+    const stmt = this.db.prepare(`
+      INSERT INTO embedding_cache (
+        profile_key, profile_name, content_hash, dimensions, embedding_json, updated_at
+      ) VALUES (
+        @profileKey, @profileName, @contentHash, @dimensions, @embeddingJson, @updatedAt
+      )
+      ON CONFLICT(profile_key, content_hash) DO UPDATE SET
+        profile_name = excluded.profile_name,
+        dimensions = excluded.dimensions,
+        embedding_json = excluded.embedding_json,
+        updated_at = excluded.updated_at
+    `);
+
+    const tx = this.db.transaction(() => {
+      const updatedAt = Date.now();
+      for (const entry of entries) {
+        stmt.run({
+          profileKey: entry.profileKey,
+          profileName: entry.profileName,
+          contentHash: entry.contentHash,
+          dimensions: entry.dimensions,
+          embeddingJson: JSON.stringify(entry.embedding),
+          updatedAt
         });
       }
     });

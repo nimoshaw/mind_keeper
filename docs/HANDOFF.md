@@ -163,7 +163,7 @@ These are not emergencies, but they should be visible during handoff.
 - no HTTP transport yet
 - remote workspace indexing story is still incomplete
 - deeper recall tuning should now be feedback-driven instead of architecture-driven
-- the VCP-inspired vectorization broker and cache layer is planned, but not implemented yet
+- the VCP-inspired vectorization broker is still planned, but the persistent profile-scoped embedding cache is already implemented
 
 ## Files To Read First
 
@@ -183,6 +183,7 @@ If you need the shortest useful reading path, start here:
 - [src/app/recall-service.ts](/D:/projects/mind_keeper/src/app/recall-service.ts)
 - [src/app/flash-service.ts](/D:/projects/mind_keeper/src/app/flash-service.ts)
 - [src/app/project-index-service.ts](/D:/projects/mind_keeper/src/app/project-index-service.ts)
+- [src/app/embedding-cache.ts](/D:/projects/mind_keeper/src/app/embedding-cache.ts)
 - [src/app/profile-ops-service.ts](/D:/projects/mind_keeper/src/app/profile-ops-service.ts)
 
 ## Handoff Recommendation

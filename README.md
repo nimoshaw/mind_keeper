@@ -62,6 +62,7 @@ Implemented today:
 - project-scoped `.mindkeeper`
 - incremental indexing with manifests
 - batch-capable embedding for chunk-heavy indexing paths
+- persistent project-local embedding cache for remote profiles, keyed by profile identity and normalized content hash
 - vectorization baseline metrics for indexing, rebuild, remember, and recall
 - write-time memory distillation
 - flash handoff checkpoints for session-to-session resume
@@ -222,6 +223,7 @@ Optional embedding batch tuning:
 
 These only affect the newer batch-capable embedding path.
 They are most useful when the active embedding profile is remote and OpenAI-compatible.
+That remote path now also reuses a persistent SQLite embedding cache under `.mindkeeper/vector`.
 
 ## MCP Usage Flow
 
@@ -386,6 +388,7 @@ The codebase is now split into focused layers instead of one giant service:
 - facade implementation: [src/mindkeeper-facade.ts](/D:/projects/mind_keeper/src/mindkeeper-facade.ts)
 - memory writes: [src/app/memory-write-service.ts](/D:/projects/mind_keeper/src/app/memory-write-service.ts)
 - project indexing: [src/app/project-index-service.ts](/D:/projects/mind_keeper/src/app/project-index-service.ts)
+- embedding cache: [src/app/embedding-cache.ts](/D:/projects/mind_keeper/src/app/embedding-cache.ts)
 - recall orchestration: [src/app/recall-service.ts](/D:/projects/mind_keeper/src/app/recall-service.ts)
 - session distillation: [src/app/session-service.ts](/D:/projects/mind_keeper/src/app/session-service.ts)
 - flash resume and handoff: [src/app/flash-service.ts](/D:/projects/mind_keeper/src/app/flash-service.ts)

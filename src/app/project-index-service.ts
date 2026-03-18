@@ -330,7 +330,8 @@ export class ProjectIndexService {
     const symbolSpans = extractIndexedSymbolSpans(input.absolutePath, input.content);
     const embeddings = (await this.embeddingService.embedBatch(
       profile,
-      chunks.map((chunk) => chunk.content)
+      chunks.map((chunk) => chunk.content),
+      { projectRoot: input.projectRoot }
     )).map((embedding) => normalize(embedding));
     const chunkSymbols = chunks.map((chunk) =>
       symbolForIndexedChunk(symbolSpans, chunk.start, chunk.end) ??

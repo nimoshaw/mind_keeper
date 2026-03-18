@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import OpenAI from "openai";
+import { EmbeddingCacheService, embeddingCacheHash } from "./app/embedding-cache.js";
 import { embeddingMetricsCollector } from "./embedding-metrics.js";
 import type { EmbeddingProfile } from "./types.js";
 
@@ -8,15 +9,17 @@ const DEFAULT_BATCH_MAX_ESTIMATED_TOKENS = 6_000;
 const DEFAULT_BATCH_CONCURRENCY = 4;
 
 export class EmbeddingService {
-  async embed(profile: EmbeddingProfile, text: string): Promise<number[]> {
-    const [vector] = await this.embedBatch(profile, [text]);
+  private readonly embeddingCacheService = new EmbeddingCacheService();
+
+  async embed(profile: EmbeddingProfile, text: string, options?: { projectRoot?: string }): Promise<number[]> {
+    const [vector] = await this.embedBatch(profile, [text], options);
     if (!vector || vector.length === 0) {
       throw new Error(`Embedding profile "${profile.name}" returned an empty vector.`);
     }
     return vector;
   }
 
-  async embedBatch(profile: EmbeddingProfile, texts: string[]): Promise<number[][]> {
+  async embedBatch(profile: EmbeddingProfile, texts: string[], options?: { projectRoot?: string }): Promise<number[][]> {
     if (texts.length === 0) {
       return [];
     }
@@ -29,6 +32,52 @@ export class EmbeddingService {
         providerCallCount: 1
       });
       return texts.map((text) => hashEmbedding(text, profile.dimensions));
+    }
+
+    const results = new Array<number[]>(texts.length);
+    const profileKey = buildEmbeddingProfileCacheKey(profile);
+    const misses = new Map<string, { text: string; indexes: number[] }>();
+    const cachedVectors =
+      options?.projectRoot
+        ? this.embeddingCacheService.getMany(options.projectRoot, profileKey, texts)
+        : new Map<string, number[]>();
+
+    for (let index = 0; index < texts.length; index += 1) {
+      const text = texts[index];
+      const contentHash = embeddingCacheHash(text);
+      const cachedVector = cachedVectors.get(contentHash);
+      if (cachedVector) {
+        results[index] = cachedVector;
+        continue;
+      }
+
+      const current = misses.get(contentHash);
+      if (current) {
+        current.indexes.push(index);
+      } else {
+        misses.set(contentHash, {
+          text,
+          indexes: [index]
+        });
+      }
+    }
+
+    const missedItemCount = [...misses.values()].reduce((sum, item) => sum + item.indexes.length, 0);
+    const cacheHitCount = texts.length - missedItemCount;
+    embeddingMetricsCollector.recordCacheHit(cacheHitCount);
+    embeddingMetricsCollector.recordCacheMiss(missedItemCount);
+
+    const missingItems = [...misses.values()].map((item) => item.text);
+    const batches = createEmbeddingBatches(missingItems);
+    embeddingMetricsCollector.recordRequest({
+      profileName: profile.name,
+      profileKind: profile.kind,
+      texts,
+      providerCallCount: batches.length
+    });
+
+    if (missingItems.length === 0) {
+      return ensureEmbeddingResults(profile, results);
     }
 
     if (!profile.model || !profile.baseUrl || !profile.apiKeyEnv) {
@@ -46,15 +95,6 @@ export class EmbeddingService {
       baseURL: profile.baseUrl
     });
 
-    const batches = createEmbeddingBatches(texts);
-    embeddingMetricsCollector.recordRequest({
-      profileName: profile.name,
-      profileKind: profile.kind,
-      texts,
-      providerCallCount: batches.length
-    });
-
-    const results = new Array<number[]>(texts.length);
     await runWithConcurrency(
       batches,
       getBatchConcurrency(),
@@ -75,17 +115,41 @@ export class EmbeddingService {
           );
         }
 
+        const cacheEntries: Array<{ text: string; embedding: number[] }> = [];
         batch.items.forEach((item, index) => {
           const vector = vectors[index];
           if (!vector || vector.length === 0) {
             throw new Error(`Embedding profile "${profile.name}" returned an empty vector.`);
           }
-          results[item.originalIndex] = vector;
+
+          const miss = missingItems[item.originalIndex];
+          const contentHash = embeddingCacheHash(miss);
+          const grouped = misses.get(contentHash);
+          if (!grouped) {
+            return;
+          }
+
+          for (const originalIndex of grouped.indexes) {
+            results[originalIndex] = vector;
+          }
+          cacheEntries.push({
+            text: grouped.text,
+            embedding: vector
+          });
         });
+
+        if (options?.projectRoot && cacheEntries.length > 0) {
+          this.embeddingCacheService.setMany(options.projectRoot, {
+            profileKey,
+            profileName: profile.name,
+            dimensions: profile.dimensions,
+            entries: cacheEntries
+          });
+        }
       }
     );
 
-    return results;
+    return ensureEmbeddingResults(profile, results);
   }
 }
 
@@ -214,6 +278,25 @@ function getBatchMaxEstimatedTokens(): number {
 
 function getBatchConcurrency(): number {
   return parsePositiveInt(process.env.MIND_KEEPER_EMBED_BATCH_CONCURRENCY, DEFAULT_BATCH_CONCURRENCY);
+}
+
+function buildEmbeddingProfileCacheKey(profile: EmbeddingProfile): string {
+  return [
+    profile.name,
+    profile.kind,
+    profile.model ?? "",
+    profile.baseUrl ?? "",
+    String(profile.dimensions)
+  ].join("|");
+}
+
+function ensureEmbeddingResults(profile: EmbeddingProfile, results: Array<number[] | undefined>): number[][] {
+  return results.map((vector) => {
+    if (!vector || vector.length === 0) {
+      throw new Error(`Embedding profile "${profile.name}" returned an incomplete result set.`);
+    }
+    return vector;
+  });
 }
 
 function parsePositiveInt(input: string | undefined, fallback: number): number {

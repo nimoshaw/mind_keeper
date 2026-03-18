@@ -116,6 +116,7 @@ The codebase has already been split into focused services instead of one giant f
 - facade implementation: [src/mindkeeper-facade.ts](/D:/projects/mind_keeper/src/mindkeeper-facade.ts)
 - memory writes: [src/app/memory-write-service.ts](/D:/projects/mind_keeper/src/app/memory-write-service.ts)
 - indexing: [src/app/project-index-service.ts](/D:/projects/mind_keeper/src/app/project-index-service.ts)
+- embedding cache: [src/app/embedding-cache.ts](/D:/projects/mind_keeper/src/app/embedding-cache.ts)
 - recall orchestration: [src/app/recall-service.ts](/D:/projects/mind_keeper/src/app/recall-service.ts)
 - session distillation: [src/app/session-service.ts](/D:/projects/mind_keeper/src/app/session-service.ts)
 - flash handoff: [src/app/flash-service.ts](/D:/projects/mind_keeper/src/app/flash-service.ts)
@@ -144,9 +145,10 @@ The write pipeline does roughly this:
 2. enrich metadata
 3. persist source asset in the right partition
 4. chunk content
-5. generate embeddings through the active profile
-6. write chunk records and vector artifacts
-7. update manifests and index state
+5. reuse cached remote embeddings when the same normalized content is already known under the active profile
+6. generate remaining embeddings through the active profile
+7. write chunk records and vector artifacts
+8. update manifests and index state
 
 ### Project Indexing
 
@@ -157,6 +159,7 @@ This path is driven by:
 - parts of `recover_profile_index`
 
 The project indexer scans eligible files, applies manifest-based incremental checks, extracts symbols when possible, then chunks and persists retrievable project content.
+When the active embedding profile is remote, repeated chunk text can now reuse a project-local SQLite embedding cache before issuing provider calls.
 
 ## Retrieval Shape
 

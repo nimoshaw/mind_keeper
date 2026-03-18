@@ -384,7 +384,12 @@ Current completed work:
 Still not done:
 
 - central embedding broker
-- vector cache
 - debounce scheduler
 - remote-provider failure isolation per batch item
 - idle release and prewarm policy
+
+Newly completed since the initial draft:
+
+- a project-local SQLite embedding cache now reuses remote vectors by profile identity and normalized content hash
+- repeated recall or re-index work can now short-circuit provider calls when the text is already known under the same profile
+- regression coverage now includes persistent cache reuse and cross-profile cache isolation

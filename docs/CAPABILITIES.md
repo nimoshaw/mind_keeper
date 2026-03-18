@@ -49,6 +49,7 @@ This file tracks what is already live in the current project and what still belo
 - Structured recovery failure classification with stable codes and operator guidance for config, API-key, and provider failures
 - Benchmark, smoke, and regression coverage
 - Batch-capable embedding for multi-chunk indexing paths
+- Persistent project-local embedding cache for remote profiles with profile-scoped reuse
 - Vectorization baseline metrics for indexing, rebuild, remember, and recall benchmarks
 
 ## Product Shape Today
@@ -67,7 +68,7 @@ This file tracks what is already live in the current project and what still belo
 - Heavier cross-encoder rerank strategies when latency budget allows
 - Richer IDE UI affordances for wave and relation explain output
 - Canonical-memory versus profile-index separation for future cross-agent compatibility
-- VCP-inspired vectorization broker with batching, caching, debounce aggregation, and idle release
+- VCP-inspired vectorization broker with debounce aggregation and idle release
 
 ## Current Bias
 
