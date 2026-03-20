@@ -1,0 +1,28 @@
+# Mind Keeper 服务器模式
+# 启动: docker compose up -d
+# 访问: http://your-server:6700 (Dashboard)
+#        http://your-server:6700/api/health (API)
+
+services:
+  mind-keeper:
+    build: .
+    container_name: mind-keeper
+    restart: unless-stopped
+    ports:
+      - "6700:6700"
+    volumes:
+      # 持久化存储 — 记忆数据库、配置、领域知识
+      - mind-keeper-data:/data
+      # 可选: 挂载本地项目目录 (只读索引)
+      # - D:\projects:/projects:ro
+    environment:
+      - MIND_KEEPER_HTTP_HOST=0.0.0.0
+      - MIND_KEEPER_HTTP_PORT=6700
+      - MIND_KEEPER_PROJECT_ROOT=/data
+      # Embedding API 配置 (按需填写)
+      # - OPENAI_API_KEY=sk-xxx
+      # - QWEN_API_KEY=xxx
+
+volumes:
+  mind-keeper-data:
+    driver: local

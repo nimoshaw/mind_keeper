@@ -5,8 +5,10 @@
   "description": "Project-scoped memory MCP for IDE workflows.",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs');const p=require('path');const src=p.join('src','dashboard');const dst=p.join('dist','dashboard');fs.mkdirSync(dst,{recursive:true});for(const f of fs.readdirSync(src))fs.copyFileSync(p.join(src,f),p.join(dst,f));console.log('Dashboard files copied.')\"",
     "dev": "tsx src/index.ts",
+    "http": "tsx src/http.ts",
+    "http:start": "node dist/http.js",
     "start": "node dist/index.js",
     "setup:win11": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-win11.ps1",
     "start:win11": "powershell -ExecutionPolicy Bypass -File ./scripts/start-win11.ps1",

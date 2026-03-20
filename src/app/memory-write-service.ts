@@ -3,7 +3,7 @@ import path from "node:path";
 import { mindkeeperRoot } from "../config.js";
 import { clamp01, defaultMemoryTierForSource, defaultStabilityForSource, sha1, slugify } from "../memory-defaults.js";
 import { ensureProjectScaffold } from "../project.js";
-import type { RememberDecisionInput, RememberInput } from "../types.js";
+import type { MemorySourceKind, RememberDecisionInput, RememberInput, RememberLogInput } from "../types.js";
 import { ProjectIndexService } from "./project-index-service.js";
 
 export class MemoryWriteService {
@@ -82,9 +82,43 @@ export class MemoryWriteService {
       distillReason: "Structured decision memories are treated as stable long-term project knowledge."
     });
   }
+
+  async rememberLog(input: RememberLogInput): Promise<{ docId: string; chunkCount: number; path: string }> {
+    const content = [
+      `# Log: ${input.event}`,
+      "",
+      `**Time**: ${new Date().toLocaleString()}`,
+      input.model ? `**Model**: ${input.model}` : "",
+      input.action ? `**Action**: ${input.action}` : "",
+      input.testResult ? `**Test Result**: ${input.testResult}` : "",
+      "",
+      "## Details",
+      input.notes || "No additional notes provided.",
+      "",
+      ...(input.tags?.length
+        ? [
+            "## Tags",
+            ...input.tags.map((tag: string) => `- ${tag}`),
+            ""
+          ]
+        : [])
+    ].filter(Boolean).join("\n");
+
+    return this.remember({
+      projectRoot: input.projectRoot,
+      content,
+      sourceKind: "log",
+      title: input.event,
+      tags: input.tags,
+      memoryTier: "working",
+      stabilityScore: 0.5,
+      distillConfidence: 0.8,
+      distillReason: "Project logs record temporal progress and model performance observations."
+    });
+  }
 }
 
-function sourceDir(sourceKind: RememberInput["sourceKind"]): string {
+function sourceDir(sourceKind: MemorySourceKind): string {
   switch (sourceKind) {
     case "manual":
       return "knowledge";
@@ -94,5 +128,10 @@ function sourceDir(sourceKind: RememberInput["sourceKind"]): string {
       return "diary";
     case "imported":
       return "imports";
+    case "log":
+      return "logs";
+    default:
+      return "other";
   }
 }
+

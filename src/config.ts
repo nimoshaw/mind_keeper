@@ -70,10 +70,12 @@ export function defaultConfig(projectName: string): MindKeeperConfig {
     sourcePriority: {
       manual: 1,
       decision: 0.95,
+      log: 0.8,
       diary: 0.85,
       project: 0.75,
       imported: 0.7
     },
+
     indexing: {
       includeGlobs: [
         "**/*.md",

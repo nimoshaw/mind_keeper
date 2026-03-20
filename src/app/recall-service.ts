@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { buildResumePrompt, classifyFreshness, readFlashCheckpoint } from "./flash-service.js";
+import { DomainRegistry } from "./domain-registry.js";
 import { loadConfig } from "../config.js";
 import { cosineSimilarity, EmbeddingService, normalize } from "../embedding.js";
 import {
@@ -318,6 +319,9 @@ export class RecallService {
       wavePlan: RecallWaveResult[];
       selectedBySource: Record<MemorySourceKind, number>;
       fallbackUsed: boolean;
+      profileKind: string;
+      profileWarning: string | null;
+      domainHits: Array<{ name: string; displayName: string; aliases: string[] }>;
     };
     results: ChunkRecord[];
   }> {
@@ -697,6 +701,48 @@ export class RecallService {
       }
     }
 
+    // ── Domain awareness & profile observability ──────────────────
+    const profileKind = config.activeEmbeddingProfile;
+    const isHashProfile = config.embeddingProfiles.find(
+      (p) => p.name === config.activeEmbeddingProfile
+    )?.kind === "hash";
+    const profileWarning = isHashProfile
+      ? "Using hash-based embedding. Configure a real embedding model (e.g. qwen3-8b or embedding-001) for better recall quality."
+      : null;
+
+    let domainHits: Array<{ name: string; displayName: string; aliases: string[] }> = [];
+    try {
+      const domainRegistry = new DomainRegistry(input.projectRoot);
+      const allDomains = await domainRegistry.listDomains();
+      if (allDomains.length > 0) {
+        const taskLower = input.task.toLowerCase();
+        domainHits = allDomains.filter((d) =>
+          d.name.toLowerCase() === taskLower ||
+          d.displayName.toLowerCase().includes(taskLower) ||
+          taskLower.includes(d.displayName.toLowerCase()) ||
+          d.aliases.some((a) => taskLower.includes(a.toLowerCase()))
+        ).map((d) => ({ name: d.name, displayName: d.displayName, aliases: d.aliases }));
+
+        for (const hit of domainHits) {
+          explainPanel.highlights.push({
+            kind: "match",
+            title: `Domain knowledge matched: ${hit.displayName}`,
+            detail: `Task matched domain "${hit.name}" (aliases: ${hit.aliases.join(", ") || "none"}).`
+          });
+        }
+      }
+    } catch {
+      // Domain detection is best-effort and should never block recall.
+    }
+
+    if (profileWarning) {
+      explainPanel.highlights.push({
+        kind: "warning",
+        title: "Weak embedding profile active",
+        detail: profileWarning
+      });
+    }
+
     return {
       query,
       gates: {
@@ -779,7 +825,10 @@ export class RecallService {
         },
         wavePlan: waveResults,
         selectedBySource: summarizeSourceCounts(explainedChunks),
-        fallbackUsed
+        fallbackUsed,
+        profileKind,
+        profileWarning,
+        domainHits
       },
       results: explainedChunks
     };
@@ -2213,8 +2262,10 @@ function summarizeSourceCounts(chunks: ChunkRecord[]): Record<MemorySourceKind, 
     decision: 0,
     diary: 0,
     project: 0,
-    imported: 0
+    imported: 0,
+    log: 0
   };
+
 
   for (const chunk of chunks) {
     counts[chunk.sourceKind] += 1;

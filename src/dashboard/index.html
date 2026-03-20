@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mind Keeper Dashboard</title>
+  <meta name="description" content="Mind Keeper 知识管理后台 — 记忆总览、领域管理、治理工具">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">🧠</div>
+        <div class="brand-text">
+          <span class="brand-name">Mind Keeper</span>
+          <span class="brand-tag">Dashboard</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-page="overview">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">总览</span>
+        </button>
+        <button class="nav-item" data-page="domains">
+          <span class="nav-icon">📚</span>
+          <span class="nav-label">领域管理</span>
+        </button>
+        <button class="nav-item" data-page="memories">
+          <span class="nav-icon">💾</span>
+          <span class="nav-label">记忆管理</span>
+        </button>
+        <button class="nav-item" data-page="hygiene">
+          <span class="nav-icon">🧹</span>
+          <span class="nav-label">治理工具</span>
+        </button>
+        <button class="nav-item" data-page="logs">
+          <span class="nav-icon">📜</span>
+          <span class="nav-label">项目日志</span>
+        </button>
+
+      </nav>
+      <div class="sidebar-footer">
+        <div class="connection-status" id="connectionStatus">
+          <span class="status-dot"></span>
+          <span class="status-text">连接中...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="page-title" id="pageTitle">知识总览</h1>
+        </div>
+        <div class="topbar-right">
+          <div class="project-selector">
+            <label for="projectRoot">项目根目录</label>
+            <input type="text" id="projectRoot" placeholder="D:\projects\my-project" />
+            <button class="btn btn-sm" id="btnSetProject">设置</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="content" id="content">
+        <!-- Dynamic content loads here -->
+      </div>
+    </main>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+  <div class="modal-overlay" id="modalOverlay"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

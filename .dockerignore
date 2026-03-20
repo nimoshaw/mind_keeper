@@ -1,0 +1,15 @@
+node_modules
+dist
+.mindkeeper
+*.db
+*.db-journal
+.git
+.gitignore
+tests
+benchmarks
+scripts
+docs
+*.md
+!package.json
+!package-lock.json
+!tsconfig.json

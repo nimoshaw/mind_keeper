@@ -312,6 +312,43 @@ server.tool(
   }
 );
 
+/**
+ * Record a structured project log entry including the event, model name, action taken, and test results to track project history.
+ */
+server.tool(
+  "remember_log",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    event: z.string().min(1).describe("The main event or title of the log entry."),
+    model: z.string().optional().describe("The name of the AI model used."),
+    action: z.string().optional().describe("Brief description of the action taken."),
+    test_result: z.string().optional().describe("Summary of any tests run and their results."),
+    notes: z.string().optional().describe("Additional development notes or reasoning."),
+    tags: z.array(z.string()).optional().describe("Optional tags for log categorization.")
+  },
+  async ({ project_root, event, model, action, test_result, notes, tags }) => {
+    const result = await service.rememberLog({
+      projectRoot: project_root,
+      event,
+      model,
+      action,
+      testResult: test_result,
+      notes,
+      tags
+    });
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
+
 server.tool(
   "recall",
   "Recall relevant memory chunks using hybrid vector and lexical retrieval with source-priority boosts.",
@@ -1294,6 +1331,124 @@ server.tool(
           text: JSON.stringify(result, null, 2)
         }
       ]
+    };
+  }
+);
+
+server.tool(
+  "domain_create",
+  "Create a new domain knowledge base with metadata, aliases, and optional section sub-directories under .mindkeeper/domains.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    name: z.string().min(1).describe("Domain name, will be slugified for the directory name."),
+    display_name: z.string().min(1).describe("Human-readable display name for the domain."),
+    aliases: z.array(z.string()).optional().describe("Alternative names for this domain (e.g. Chinese names, abbreviations)."),
+    description: z.string().optional().describe("Description of the domain knowledge base."),
+    tags: z.array(z.string()).optional().describe("Tags for categorization."),
+    sections: z.array(z.object({
+      dir: z.string().describe("Directory name for the section."),
+      label: z.string().describe("Human-readable label for the section.")
+    })).optional().describe("Sub-directory sections to create within the domain.")
+  },
+  async ({ project_root, name, display_name, aliases, description, tags, sections }) => {
+    const result = await service.domainCreate(project_root, {
+      name,
+      displayName: display_name,
+      aliases,
+      description,
+      tags,
+      sections
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+    };
+  }
+);
+
+server.tool(
+  "domain_list",
+  "List all registered domain knowledge bases for a project.",
+  {
+    project_root: z.string().describe("Absolute path to the project root.")
+  },
+  async ({ project_root }) => {
+    const result = await service.domainList(project_root);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+    };
+  }
+);
+
+server.tool(
+  "domain_resolve",
+  "Resolve a domain by name, display name, or any of its aliases (case-insensitive). Useful for finding a domain when you only know one of its alternative names.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    query: z.string().min(1).describe("Name, display name, or alias to search for.")
+  },
+  async ({ project_root, query }) => {
+    const result = await service.domainResolve(project_root, query);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+    };
+  }
+);
+
+server.tool(
+  "domain_update",
+  "Update metadata for an existing domain knowledge base.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    domain_name: z.string().min(1).describe("The domain directory name to update."),
+    display_name: z.string().optional().describe("New display name."),
+    aliases: z.array(z.string()).optional().describe("Replace aliases with this list."),
+    description: z.string().optional().describe("New description."),
+    tags: z.array(z.string()).optional().describe("Replace tags with this list.")
+  },
+  async ({ project_root, domain_name, display_name, aliases, description, tags }) => {
+    const result = await service.domainUpdate(project_root, domain_name, {
+      displayName: display_name,
+      aliases,
+      description,
+      tags
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+    };
+  }
+);
+
+server.tool(
+  "domain_delete",
+  "Delete a domain knowledge base and all its contents.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    domain_name: z.string().min(1).describe("The domain directory name to delete.")
+  },
+  async ({ project_root, domain_name }) => {
+    const deleted = await service.domainDelete(project_root, domain_name);
+    return {
+      content: [{ type: "text", text: JSON.stringify({ deleted }, null, 2) }]
+    };
+  }
+);
+
+server.tool(
+  "domain_add_section",
+  "Add a new section sub-directory to an existing domain knowledge base.",
+  {
+    project_root: z.string().describe("Absolute path to the project root."),
+    domain_name: z.string().min(1).describe("The domain directory name."),
+    section_dir: z.string().min(1).describe("Directory name for the new section."),
+    section_label: z.string().min(1).describe("Human-readable label for the section.")
+  },
+  async ({ project_root, domain_name, section_dir, section_label }) => {
+    const result = await service.domainAddSection(project_root, domain_name, {
+      dir: section_dir,
+      label: section_label
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
     };
   }
 );

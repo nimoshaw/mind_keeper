@@ -1,4 +1,4 @@
-export type MemorySourceKind = "manual" | "decision" | "diary" | "project" | "imported";
+export type MemorySourceKind = "manual" | "decision" | "diary" | "project" | "imported" | "log";
 export type ContextTaskStage = "debug" | "implement" | "verify" | "refactor" | "document" | "explore" | "general";
 export type TaskIntentSubtype =
   | "bug_root_cause"
@@ -483,6 +483,17 @@ export interface RememberDecisionInput {
   tags?: string[];
 }
 
+export interface RememberLogInput {
+  projectRoot: string;
+  event: string;
+  model?: string;
+  action?: string;
+  testResult?: string;
+  notes?: string;
+  tags?: string[];
+}
+
+
 export interface ContextForTaskInput {
   projectRoot: string;
   task: string;
@@ -589,4 +600,36 @@ export interface FlashClearReport {
   cleared: boolean;
   activePath: string;
   summary: string;
+}
+
+export interface DomainSectionConfig {
+  dir: string;
+  label: string;
+}
+
+export interface DomainConfig {
+  name: string;
+  displayName: string;
+  aliases: string[];
+  description: string;
+  tags: string[];
+  sections: DomainSectionConfig[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DomainIndexEntry {
+  name: string;
+  displayName: string;
+  aliases: string[];
+  description: string;
+  tags: string[];
+  sectionCount: number;
+  fileCount: number;
+  updatedAt: string;
+}
+
+export interface DomainIndex {
+  generatedAt: string;
+  domains: DomainIndexEntry[];
 }

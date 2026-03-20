@@ -1,6 +1,7 @@
 import { HygieneService } from "./app/hygiene-service.js";
 import { inspectMemoryAccessSurface } from "./access-surface.js";
 import { CanonicalService } from "./app/canonical-service.js";
+import { DomainRegistry } from "./app/domain-registry.js";
 import { FlashService } from "./app/flash-service.js";
 import { MemoryWriteService } from "./app/memory-write-service.js";
 import { ProfileOpsService } from "./app/profile-ops-service.js";
@@ -13,6 +14,9 @@ import { repairProfileRegistry, validateActiveProfileIndex } from "./profile-reg
 import { ensureProjectScaffold } from "./project.js";
 import type {
   ContextForTaskInput,
+  DomainConfig,
+  DomainIndex,
+  DomainSectionConfig,
   ForgetInput,
   IndexProjectResult,
   RateSourceInput,
@@ -40,6 +44,7 @@ export class MindKeeperService {
     rememberDecision: (input) => this.memoryWriteService.rememberDecision(input)
   });
 
+
   async remember(input: Parameters<MemoryWriteService["remember"]>[0]) {
     return this.memoryWriteService.remember(input);
   }
@@ -48,7 +53,12 @@ export class MindKeeperService {
     return this.memoryWriteService.rememberDecision(input);
   }
 
+  async rememberLog(input: Parameters<MemoryWriteService["rememberLog"]>[0]) {
+    return this.memoryWriteService.rememberLog(input);
+  }
+
   async summarizeSession(input: SummarizeSessionInput) {
+
     return this.sessionService.summarizeSession(input);
   }
 
@@ -397,5 +407,59 @@ export class MindKeeperService {
     dryRun?: boolean;
   }) {
     return this.profileOpsService.recoverActiveProfileIndex(input);
+  }
+
+  // ── Domain Management ───────────────────────────────────────────
+
+  async domainCreate(projectRoot: string, input: {
+    name: string;
+    displayName: string;
+    aliases?: string[];
+    description?: string;
+    tags?: string[];
+    sections?: DomainSectionConfig[];
+  }): Promise<DomainConfig> {
+    const registry = new DomainRegistry(projectRoot);
+    return registry.createDomain(input);
+  }
+
+  async domainList(projectRoot: string): Promise<DomainConfig[]> {
+    const registry = new DomainRegistry(projectRoot);
+    return registry.listDomains();
+  }
+
+  async domainResolve(projectRoot: string, query: string): Promise<DomainConfig | null> {
+    const registry = new DomainRegistry(projectRoot);
+    return registry.resolveByAlias(query);
+  }
+
+  async domainUpdate(projectRoot: string, domainName: string, updates: {
+    displayName?: string;
+    aliases?: string[];
+    description?: string;
+    tags?: string[];
+  }): Promise<DomainConfig | null> {
+    const registry = new DomainRegistry(projectRoot);
+    return registry.updateDomain(domainName, updates);
+  }
+
+  async domainDelete(projectRoot: string, domainName: string): Promise<boolean> {
+    const registry = new DomainRegistry(projectRoot);
+    return registry.deleteDomain(domainName);
+  }
+
+  async domainAddSection(projectRoot: string, domainName: string, section: DomainSectionConfig): Promise<DomainConfig | null> {
+    const registry = new DomainRegistry(projectRoot);
+    return registry.addSection(domainName, section);
+  }
+
+  async domainListFiles(projectRoot: string, domainName: string, section?: string): Promise<string[]> {
+    const registry = new DomainRegistry(projectRoot);
+    return registry.listDomainFiles(domainName, section);
+  }
+
+  async domainIndex(projectRoot: string): Promise<DomainIndex> {
+    const registry = new DomainRegistry(projectRoot);
+    return registry.readIndex();
   }
 }

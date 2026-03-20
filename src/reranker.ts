@@ -86,17 +86,29 @@ function heuristicRerankScore(query: string, chunk: ChunkRecord): number {
   const exactPhrase = longestInterestingPhrase(query);
   const exactContent = exactPhrase && chunk.content.toLowerCase().includes(exactPhrase.toLowerCase()) ? 1 : 0;
 
+  // Tier signal: durable knowledge ranks higher
+  const tierSignal =
+    chunk.sourceKind === "decision" || chunk.sourceKind === "manual" ? 0.06
+      : chunk.sourceKind === "project" ? 0.02
+        : 0;
+
+  // Recency signal: fresher memories rank higher
+  const ageDays = chunk.updatedAt ? Math.max(0, (Date.now() - chunk.updatedAt) / (1000 * 60 * 60 * 24)) : 999;
+  const recencySignal = ageDays <= 7 ? 0.04 : ageDays <= 30 ? 0.02 : 0;
+
   return Math.max(
     0,
     Math.min(
       1,
-      exactContent * 0.28 +
-        contentCoverage * 0.28 +
-        titleCoverage * 0.14 +
-        symbolCoverage * 0.14 +
-        moduleCoverage * 0.08 +
-        pathCoverage * 0.04 +
-        tagCoverage * 0.04
+      exactContent * 0.25 +
+        contentCoverage * 0.25 +
+        titleCoverage * 0.13 +
+        symbolCoverage * 0.13 +
+        moduleCoverage * 0.07 +
+        pathCoverage * 0.03 +
+        tagCoverage * 0.04 +
+        tierSignal +
+        recencySignal
     )
   );
 }

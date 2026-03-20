@@ -157,6 +157,7 @@ export class MindKeeperStorage {
     const dbPath = path.join(vectorDir, "mindkeeper.sqlite");
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
+    this.db.pragma("busy_timeout = 5000");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS chunks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -842,7 +843,8 @@ export class MindKeeperStorage {
         SUM(CASE WHEN c.source_kind = 'decision' THEN 1 ELSE 0 END) AS decision_count,
         SUM(CASE WHEN c.source_kind = 'diary' THEN 1 ELSE 0 END) AS diary_count,
         SUM(CASE WHEN c.source_kind = 'project' THEN 1 ELSE 0 END) AS project_count,
-        SUM(CASE WHEN c.source_kind = 'imported' THEN 1 ELSE 0 END) AS imported_count
+        SUM(CASE WHEN c.source_kind = 'imported' THEN 1 ELSE 0 END) AS imported_count,
+        SUM(CASE WHEN c.source_kind = 'log' THEN 1 ELSE 0 END) AS log_count
       FROM chunks c
       LEFT JOIN disabled_sources ds ON ds.doc_id = c.doc_id
       GROUP BY c.branch_name
@@ -860,6 +862,7 @@ export class MindKeeperStorage {
       diary_count: number;
       project_count: number;
       imported_count: number;
+      log_count: number;
     }>).map((row) => ({
       branchName: row.branch_name,
       docCount: row.doc_count,
@@ -871,10 +874,12 @@ export class MindKeeperStorage {
         decision: row.decision_count,
         diary: row.diary_count,
         project: row.project_count,
-        imported: row.imported_count
+        imported: row.imported_count,
+        log: row.log_count
       }
     }));
   }
+
 
   fetchCandidates(filters: {
     sourceKinds?: MemorySourceKind[];

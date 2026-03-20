@@ -416,6 +416,8 @@ function createSourceCountRecord(): Record<MemorySourceKind, number> {
     decision: 0,
     diary: 0,
     project: 0,
-    imported: 0
+    imported: 0,
+    log: 0
   };
 }
+

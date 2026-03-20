@@ -36,3 +36,23 @@ export function profileIndexDescriptorPath(projectRoot: string, profileName: str
 export function legacyVectorRoot(projectRoot: string): string {
   return path.join(mindkeeperRoot(projectRoot), "vector");
 }
+
+export function domainsRoot(projectRoot: string): string {
+  return path.join(mindkeeperRoot(projectRoot), "domains");
+}
+
+export function domainRoot(projectRoot: string, domainName: string): string {
+  return path.join(domainsRoot(projectRoot), domainName);
+}
+
+export function domainConfigPath(projectRoot: string, domainName: string): string {
+  return path.join(domainRoot(projectRoot, domainName), "domain.json");
+}
+
+export function domainSectionRoot(projectRoot: string, domainName: string, section: string): string {
+  return path.join(domainRoot(projectRoot, domainName), section);
+}
+
+export function domainsIndexPath(projectRoot: string): string {
+  return path.join(domainsRoot(projectRoot), "_index.json");
+}
