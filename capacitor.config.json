@@ -1,0 +1,6 @@
+{
+  "appId": "com.mindkeeper.app",
+  "appName": "Mind Keeper",
+  "webDir": "dist/dashboard",
+  "bundledWebRuntime": false
+}

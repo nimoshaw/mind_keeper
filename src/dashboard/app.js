@@ -1,5 +1,5 @@
 // ═══════ Mind Keeper Dashboard — SPA ═══════
-const API = window.location.origin;
+let API = localStorage.getItem('mk_api_url') || window.location.origin;
 let PROJECT_ROOT = localStorage.getItem('mk_project_root') || '';
 
 // ── API Client ───────────────────────────────────────────────
@@ -74,11 +74,16 @@ document.querySelectorAll('.nav-item').forEach(btn => {
 
 // ── Project Root ─────────────────────────────────────────────
 const projectInput = document.getElementById('projectRoot');
+const apiInput = document.getElementById('apiUrl');
 projectInput.value = PROJECT_ROOT;
+apiInput.value = API;
+
 document.getElementById('btnSetProject').addEventListener('click', () => {
+  API = apiInput.value.trim() || window.location.origin;
   PROJECT_ROOT = projectInput.value.trim();
+  localStorage.setItem('mk_api_url', API);
   localStorage.setItem('mk_project_root', PROJECT_ROOT);
-  toast(`项目已设置: ${PROJECT_ROOT}`, 'success');
+  toast(`设置已保存`, 'success');
   checkHealth();
   renderPage();
 });
