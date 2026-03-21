@@ -1,6 +1,6 @@
 {
   "name": "mind-keeper",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Project-scoped memory MCP for IDE workflows.",
   "type": "module",
@@ -17,7 +17,7 @@
     "android:build": "npm run build && cap sync && cap build android",
     "android:add": "cap add android",
     "android:sync": "cap sync",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "check": "npx tsc -p tsconfig.json --noEmit",
     "test": "tsx --test tests/**/*.test.ts",
     "smoke": "tsx scripts/smoke.ts",
     "status": "tsx scripts/status.ts",
